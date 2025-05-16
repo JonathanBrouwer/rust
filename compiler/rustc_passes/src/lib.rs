@@ -37,6 +37,7 @@ mod reachable;
 pub mod stability;
 mod upvars;
 mod weak_lang_items;
+mod unreachable;
 
 rustc_fluent_macro::fluent_messages! { "../messages.ftl" }
 
@@ -55,4 +56,5 @@ pub fn provide(providers: &mut Providers) {
     stability::provide(providers);
     upvars::provide(providers);
     check_export::provide(providers);
+    unreachable::provide(providers);
 }

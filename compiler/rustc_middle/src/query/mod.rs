@@ -2586,6 +2586,10 @@ rustc_queries! {
         desc { "estimating codegen size of `{}`", key }
         cache_on_disk_if { true }
     }
+
+    query check_unreachable(key: LocalDefId) {
+        desc { |tcx| "checking for unreachable expressions"}
+    }
 }
 
 rustc_with_all_queries! { define_callbacks! }

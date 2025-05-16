@@ -1346,17 +1346,17 @@ impl<'a, 'tcx> Liveness<'a, 'tcx> {
             // that we do not emit the same warning twice if the uninhabited type
             // is indeed `!`.
 
-            self.ir.tcx.emit_node_span_lint(
-                lint::builtin::UNREACHABLE_CODE,
-                expr_id,
-                expr_span,
-                errors::UnreachableDueToUninhabited {
-                    expr: expr_span,
-                    orig: orig_span,
-                    descr,
-                    ty: orig_ty,
-                },
-            );
+            // self.ir.tcx.emit_node_span_lint(
+            //     lint::builtin::UNREACHABLE_CODE,
+            //     expr_id,
+            //     expr_span,
+            //     errors::UnreachableDueToUninhabited {
+            //         expr: expr_span,
+            //         orig: orig_span,
+            //         descr,
+            //         ty: orig_ty,
+            //     },
+            // );
         }
     }
 }
