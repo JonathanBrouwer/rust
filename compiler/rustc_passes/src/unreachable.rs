@@ -1,4 +1,5 @@
 use tracing::debug;
+use rustc_ast::InlineAsmOptions;
 use rustc_hir::def::*;
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Stmt, StmtKind};
@@ -16,7 +17,7 @@ struct ReachabilityChecker<'tcx> {
 
 impl ReachabilityChecker<'_> {
 
-    fn warn_expr(&self, expr: &Expr, origin: &Expr) {
+    fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
         let return_type = self.typeck_results.expr_ty(origin);
         self.tcx.emit_node_span_lint(
             lint::builtin::UNREACHABLE_CODE,
@@ -25,8 +26,8 @@ impl ReachabilityChecker<'_> {
             errors::UnreachableDueToUninhabited {
                 expr: expr.span,
                 orig: origin.span,
-                descr: "expression",
-                ty: return_type, //TODO wrong
+                descr,
+                ty: return_type,
             },
         );
     }
@@ -53,18 +54,26 @@ impl ReachabilityChecker<'_> {
                 self.block_diverges(b)
             }
             ExprKind::MethodCall(_,f, args,_) | ExprKind::Call(f, args) => {
-                let return_type = self.typeck_results.expr_ty(expr);
-                let m = self.tcx.parent_module(expr.hir_id).to_def_id();
-                (!return_type.is_inhabited_from(self.tcx, m, self.typing_env)).then_some(expr)
+                let mut diverges = None;
+                for arg in args {
+                    if let Some(div) = self.expr_diverges(arg) {
+                        diverges = Some(div);
+                    }
+                }
+                if let Some(diverges) = diverges {
+                    self.warn_expr(f, diverges, "call")
+                }
+
+                self.check_expression_resolving_type_is_not_inhabited(expr)
             },
             ExprKind::Lit(_) => {
                 None
             },
             ExprKind::If(cond, if_expr, else_expr) => {
                 if let Some(origin) = self.expr_diverges(cond) {
-                    self.warn_expr(if_expr, origin);
+                    self.warn_expr(if_expr, origin, "expression");
                     if let Some(else_expr) = else_expr {
-                        self.warn_expr(else_expr, origin);
+                        self.warn_expr(else_expr, origin, "expression");
                     }
                     return None
                 }
@@ -77,11 +86,36 @@ impl ReachabilityChecker<'_> {
                     None
                 }
             },
+            ExprKind::Loop(block, _,_, _span) => {
+                let _ = self.block_diverges(block);
+
+                self.check_expression_resolving_type_is_not_inhabited(expr)
+            }
+            ExprKind::Continue(_) => {
+                Some(expr)
+            }
+            ExprKind::Ret(sub) | ExprKind::Break(_, sub) => {
+                if let Some(sub) = sub {
+                    self.expr_diverges(sub);
+                }
+                Some(expr)
+            },
+            ExprKind::InlineAsm(_) => {
+                self.check_expression_resolving_type_is_not_inhabited(expr)
+            },
             _ => {
                 None
                 //TODO
             },
         }
+    }
+
+
+    /// Returns `expr` if expr diverges, done by checking the type of expr
+    fn check_expression_resolving_type_is_not_inhabited<'tcx>(&self, expr: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
+        let return_type = self.typeck_results.expr_ty(expr);
+        let m = self.tcx.parent_module(expr.hir_id).to_def_id();
+        (!return_type.is_inhabited_from(self.tcx, m, self.typing_env)).then_some(expr)
     }
 
     fn block_diverges<'tcx>(&'tcx self, b: &'tcx Block) -> Option<&'tcx Expr> {
@@ -100,7 +134,7 @@ impl ReachabilityChecker<'_> {
 
         if let Some(expr) = b.expr {
             if let Some(origin) = previous_diverged {
-                self.warn_expr(expr, origin);
+                self.warn_expr(expr, origin, "expression");
                 return None
             }
             previous_diverged = self.expr_diverges(expr);
