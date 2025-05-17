@@ -7,6 +7,11 @@ LL |     let x = type_ascribe!({return}, !);
    |             |              any code following this expression is unreachable
    |             unreachable expression
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_type.rs:9:28
+   |
+LL |     let x = type_ascribe!({return}, !);
+   |                            ^^^^^^
 note: the lint level is defined here
   --> $DIR/expr_type.rs:4:9
    |

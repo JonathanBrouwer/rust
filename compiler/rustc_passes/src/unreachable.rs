@@ -147,7 +147,7 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             },
-            ExprKind::Unary(_op, inner) => {
+            ExprKind::Unary(_, inner) | ExprKind::Type(inner, _) => {
                 if let Some(origin) = self.expr_diverges(inner) {
                     self.warn_expr(expr, origin, "expression")
                 }
