@@ -5,8 +5,7 @@
 #![deny(unreachable_code)]
 
 fn foo() {
-    let x: ! = * { return; }; //~ ERROR unreachable
-    //~| ERROR type `!` cannot be dereferenced
+    let x: ! = ! { return; }; //~ ERROR unreachable
 }
 
 fn main() { }

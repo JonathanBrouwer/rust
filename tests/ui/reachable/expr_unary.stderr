@@ -1,24 +1,22 @@
-error[E0614]: type `!` cannot be dereferenced
-  --> $DIR/expr_unary.rs:8:16
-   |
-LL |     let x: ! = * { return; };
-   |                ^^^^^^^^^^^^^ can't be dereferenced
-
 error: unreachable expression
   --> $DIR/expr_unary.rs:8:16
    |
-LL |     let x: ! = * { return; };
+LL |     let x: ! = ! { return; };
    |                ^^^^------^^^
    |                |   |
    |                |   any code following this expression is unreachable
    |                unreachable expression
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_unary.rs:8:20
+   |
+LL |     let x: ! = ! { return; };
+   |                    ^^^^^^
 note: the lint level is defined here
   --> $DIR/expr_unary.rs:5:9
    |
 LL | #![deny(unreachable_code)]
    |         ^^^^^^^^^^^^^^^^
 
-error: aborting due to 2 previous errors
+error: aborting due to 1 previous error
 
-For more information about this error, try `rustc --explain E0614`.
