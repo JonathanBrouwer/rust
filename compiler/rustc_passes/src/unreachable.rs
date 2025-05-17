@@ -67,7 +67,6 @@ impl ReachabilityChecker<'_> {
                 self.check_expression_resolving_type_is_not_inhabited(expr)
             },
             ExprKind::If(cond, if_expr, else_expr) => {
-                //eprintln!("{:?} {:?} {:?}", cond, if_expr, else_expr);
                 if let Some(origin) = self.expr_diverges(cond) {
                     self.warn_expr(if_expr, origin, "block in `if`");
                     if let Some(else_expr) = else_expr {
@@ -98,6 +97,10 @@ impl ReachabilityChecker<'_> {
                 }
                 Some(expr)
             },
+            ExprKind::Yield(sub,..) => {
+                self.expr_diverges(sub);
+                Some(expr)
+            }
             ExprKind::InlineAsm(_) => {
                 self.check_expression_resolving_type_is_not_inhabited(expr)
             },
@@ -110,6 +113,24 @@ impl ReachabilityChecker<'_> {
             }
             ExprKind::DropTemps(drop_expr) => {
                 self.expr_diverges(drop_expr)
+            }
+            ExprKind::Match(match_expr, arms, _) => {
+                if let Some(match_orig) = self.expr_diverges(match_expr) {
+                    self.warn_expr(expr, match_orig, "expression");
+                }
+
+                for arm in arms {
+                    if let Some(origin) = arm.guard.and_then(|guard| self.expr_diverges(guard)) {
+                        self.warn_expr(arm.body, origin, "expression");
+                    }
+
+                    self.expr_diverges(arm.body);
+                }
+
+                self.check_expression_resolving_type_is_not_inhabited(expr)
+            }
+            ExprKind::UnsafeBinderCast(_, expr, _) => {
+                self.expr_diverges(expr)
             }
             ExprKind::Lit(_) | _ => {
                 None
