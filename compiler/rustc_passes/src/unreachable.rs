@@ -176,6 +176,13 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
+            ExprKind::Repeat(left, _right) => {
+                // Constant expressions can not have the type `never`, so we don't have to worry about the right side
+                if let Some(origin) = self.expr_diverges(left) {
+                    self.warn_expr(expr, origin, "expression")
+                }
+                None
+            }
             ExprKind::Lit(_) | _ => {
                 None
                 //TODO
