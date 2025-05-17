@@ -15,6 +15,10 @@ struct ReachabilityChecker<'tcx> {
     typing_env: TypingEnv<'tcx>
 }
 
+enum DivergingReason {
+
+}
+
 impl ReachabilityChecker<'_> {
 
     fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
@@ -119,16 +123,23 @@ impl ReachabilityChecker<'_> {
                     self.warn_expr(expr, match_orig, "expression");
                 }
 
-                for arm in arms {
-                    if let Some(origin) = arm.guard.and_then(|guard| self.expr_diverges(guard)) {
+                let all_diverge = arms.iter().all(|arm| {
+                    let arm_diverges = if let Some(origin) = arm.guard.and_then(|guard| self.expr_diverges(guard)) {
                         self.warn_expr(arm.body, origin, "expression");
-                        return None
-                    }
+                        true
+                    } else {
+                        false
+                    };
 
-                    self.expr_diverges(arm.body);
+                    self.expr_diverges(arm.body).is_some() || arm_diverges
+                });
+
+                //TODO this does not produce the nice error message (see expr_match.rs test)
+                if all_diverge {
+                    Some(expr)
+                } else {
+                    None
                 }
-
-                self.check_expression_resolving_type_is_not_inhabited(expr)
             }
             ExprKind::Binary(bin_op, left,right) => {
                 let left_origin = self.expr_diverges(left);
