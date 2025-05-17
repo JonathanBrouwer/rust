@@ -168,6 +168,14 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
+            ExprKind::Assign(left, right, _) | ExprKind::AssignOp(_, left, right) => {
+                let left_origin = self.expr_diverges(left);
+                let right_origin = self.expr_diverges(right);
+                if let Some(origin) = left_origin.or(right_origin) {
+                    self.warn_expr(expr, origin, "expression")
+                }
+                None
+            }
             ExprKind::Lit(_) | _ => {
                 None
                 //TODO
