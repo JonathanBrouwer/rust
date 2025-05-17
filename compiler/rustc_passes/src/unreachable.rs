@@ -80,6 +80,9 @@ impl ReachabilityChecker<'_> {
 
 
         for stmt in b.stmts {
+            if let StmtKind::Item(..) = stmt.kind {
+                continue
+            }
             if previous_diverged {
                 self.warn_stmt(stmt);
                 return true
