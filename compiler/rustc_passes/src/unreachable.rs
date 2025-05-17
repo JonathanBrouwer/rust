@@ -146,6 +146,15 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
+            ExprKind::Array(array) => {
+                for element in array {
+                    if let Some(origin) = self.expr_diverges(element) {
+                        self.warn_expr(expr, origin, "expression");
+                        break
+                    }
+                }
+                None
+            }
             ExprKind::Lit(_) | _ => {
                 None
                 //TODO
