@@ -1,18 +1,3 @@
-warning: unreachable expression
-  --> $DIR/unreachable-try-pattern.rs:19:36
-   |
-LL |     let y = (match x { Ok(n) => Ok(n as u32), Err(e) => Err(e) })?;
-   |                                    -^^^^^^^
-   |                                    |
-   |                                    unreachable expression
-   |                                    any code following this expression is unreachable
-   |
-note: the lint level is defined here
-  --> $DIR/unreachable-try-pattern.rs:3:9
-   |
-LL | #![warn(unreachable_code)]
-   |         ^^^^^^^^^^^^^^^^
-
 warning: unreachable pattern
   --> $DIR/unreachable-try-pattern.rs:19:24
    |
@@ -30,7 +15,7 @@ LL | #![warn(unreachable_patterns)]
    |         ^^^^^^^^^^^^^^^^^^^^
 
 warning: unreachable pattern
-  --> $DIR/unreachable-try-pattern.rs:30:40
+  --> $DIR/unreachable-try-pattern.rs:29:40
    |
 LL |     let y = (match x { Ok(n) => Ok(n), Err(e) => Err(e) })?;
    |                                        ^^^^^^----------
@@ -40,5 +25,5 @@ LL |     let y = (match x { Ok(n) => Ok(n), Err(e) => Err(e) })?;
    |
    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
 
-warning: 3 warnings emitted
+warning: 2 warnings emitted
 

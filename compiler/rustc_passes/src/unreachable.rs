@@ -99,7 +99,7 @@ impl ReachabilityChecker<'_> {
             },
             ExprKind::Yield(sub,..) => {
                 self.expr_diverges(sub);
-                Some(expr)
+                None
             }
             ExprKind::InlineAsm(_) => {
                 self.check_expression_resolving_type_is_not_inhabited(expr)
