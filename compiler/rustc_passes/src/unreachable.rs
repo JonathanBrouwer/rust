@@ -155,6 +155,12 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
+            ExprKind::Cast(sub, _) | ExprKind::UnsafeBinderCast(_, sub,_) => {
+                if let Some(origin) = self.expr_diverges(sub) {
+                    self.warn_expr(expr, origin, "expression");
+                }
+                None
+            }
             ExprKind::Lit(_) | _ => {
                 None
                 //TODO

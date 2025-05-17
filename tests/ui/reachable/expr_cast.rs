@@ -6,8 +6,9 @@
 
 fn a() {
     // the cast is unreachable:
-    let x = {return} as !; //~ ERROR unreachable
-    //~| ERROR non-primitive cast
+    // but we don't lint because this fails to typecheck
+    let x = {return} as !;
+    //~^ ERROR non-primitive cast
 }
 
 fn main() { }
