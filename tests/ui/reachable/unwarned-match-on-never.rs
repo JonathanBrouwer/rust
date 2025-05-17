@@ -11,8 +11,8 @@ fn foo(x: !) -> bool {
 }
 
 fn bar() {
-    match (return) {
-        () => () //~ ERROR unreachable arm
+    match (return) { //~ ERROR unreachable expression
+        () => ()
     }
 }
 

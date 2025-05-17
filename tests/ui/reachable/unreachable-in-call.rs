@@ -10,8 +10,8 @@ fn call(_: u8, _: u8) {
 
 }
 fn diverge_first() {
-    call(diverge(),
-         get_u8()); //~ ERROR unreachable expression
+    call(diverge(), //~ ERROR unreachable call
+         get_u8());
 }
 fn diverge_second() {
     call( //~ ERROR unreachable call

@@ -1,4 +1,4 @@
-error: unreachable block in `if`
+error: unreachable block in `if` or `while` expression
   --> $DIR/expr_if.rs:7:17
    |
 LL |       if {return} {
@@ -7,7 +7,7 @@ LL |       if {return} {
    | |         any code following this expression is unreachable
 LL | |         println!("Hello, world!");
 LL | |     }
-   | |_____^ unreachable block in `if`
+   | |_____^ unreachable block in `if` or `while` expression
    |
 note: this expression has type `!`, which is uninhabited
   --> $DIR/expr_if.rs:7:9
