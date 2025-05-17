@@ -7,11 +7,31 @@ LL |     let x: () = {return {return {return;}}};
    |                          |       any code following this expression is unreachable
    |                          unreachable expression
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_return.rs:10:34
+   |
+LL |     let x: () = {return {return {return;}}};
+   |                                  ^^^^^^
 note: the lint level is defined here
   --> $DIR/expr_return.rs:4:9
    |
 LL | #![deny(unreachable_code)]
    |         ^^^^^^^^^^^^^^^^
 
-error: aborting due to 1 previous error
+error: unreachable expression
+  --> $DIR/expr_return.rs:10:18
+   |
+LL |     let x: () = {return {return {return;}}};
+   |                  ^^^^^^^^----------------^
+   |                  |       |
+   |                  |       any code following this expression is unreachable
+   |                  unreachable expression
+   |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_return.rs:10:26
+   |
+LL |     let x: () = {return {return {return;}}};
+   |                          ^^^^^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors
 

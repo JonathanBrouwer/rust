@@ -92,8 +92,8 @@ impl ReachabilityChecker<'_> {
                 Some(expr)
             }
             ExprKind::Ret(sub) | ExprKind::Break(_, sub) => {
-                if let Some(sub) = sub {
-                    self.expr_diverges(sub);
+                if let Some(sub) = sub && let Some(origin) = self.expr_diverges(sub) {
+                    self.warn_expr(expr, origin, "expression")
                 }
                 Some(expr)
             },
