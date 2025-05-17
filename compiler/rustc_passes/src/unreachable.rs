@@ -132,6 +132,20 @@ impl ReachabilityChecker<'_> {
             ExprKind::UnsafeBinderCast(_, expr, _) => {
                 self.expr_diverges(expr)
             }
+            ExprKind::Binary(_bin_op, left,right) => {
+                let left_origin = self.expr_diverges(left);
+                let right_origin = self.expr_diverges(right);
+                if let Some(origin) = left_origin.or(right_origin) {
+                    self.warn_expr(expr, origin, "expression")
+                }
+                None
+            },
+            ExprKind::Unary(_op, inner) => {
+                if let Some(origin) = self.expr_diverges(inner) {
+                    self.warn_expr(expr, origin, "expression")
+                }
+                None
+            }
             ExprKind::Lit(_) | _ => {
                 None
                 //TODO
