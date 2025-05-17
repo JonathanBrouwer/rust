@@ -2,7 +2,7 @@ use tracing::debug;
 use rustc_ast::{BinOpKind, InlineAsmOptions};
 use rustc_hir::def::*;
 use rustc_hir::def_id::LocalDefId;
-use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Stmt, StmtKind};
+use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Stmt, StmtKind, StructTailExpr};
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self, RootVariableMinCaptureList, Ty, TyCtxt, TypeckResults, TypingEnv};
 use rustc_session::lint;
@@ -122,15 +122,13 @@ impl ReachabilityChecker<'_> {
                 for arm in arms {
                     if let Some(origin) = arm.guard.and_then(|guard| self.expr_diverges(guard)) {
                         self.warn_expr(arm.body, origin, "expression");
+                        return None
                     }
 
                     self.expr_diverges(arm.body);
                 }
 
                 self.check_expression_resolving_type_is_not_inhabited(expr)
-            }
-            ExprKind::UnsafeBinderCast(_, expr, _) => {
-                self.expr_diverges(expr)
             }
             ExprKind::Binary(bin_op, left,right) => {
                 let left_origin = self.expr_diverges(left);
@@ -179,6 +177,18 @@ impl ReachabilityChecker<'_> {
             ExprKind::Repeat(left, _right) => {
                 // Constant expressions can not have the type `never`, so we don't have to worry about the right side
                 if let Some(origin) = self.expr_diverges(left) {
+                    self.warn_expr(expr, origin, "expression")
+                }
+                None
+            }
+            ExprKind::Struct(_, fields, tail) => {
+                for field in fields {
+                    if let Some(origin) = self.expr_diverges(field.expr) {
+                        self.warn_expr(expr, origin, "expression");
+                        return None
+                    }
+                }
+                if let StructTailExpr::Base(tail) = tail && let Some(origin) = self.expr_diverges(tail) {
                     self.warn_expr(expr, origin, "expression")
                 }
                 None
