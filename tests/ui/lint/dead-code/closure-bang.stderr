@@ -6,6 +6,11 @@ LL |     x();
 LL |     println!("Foo bar");
    |     ^^^^^^^^^^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/closure-bang.rs:5:5
+   |
+LL |     x();
+   |     ^^^
 note: the lint level is defined here
   --> $DIR/closure-bang.rs:1:9
    |
