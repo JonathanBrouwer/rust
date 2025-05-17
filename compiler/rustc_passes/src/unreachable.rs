@@ -16,7 +16,7 @@ struct ReachabilityChecker<'tcx> {
 }
 
 enum DivergingReason {
-
+    
 }
 
 impl ReachabilityChecker<'_> {
@@ -72,10 +72,7 @@ impl ReachabilityChecker<'_> {
             },
             ExprKind::If(cond, if_expr, else_expr) => {
                 if let Some(origin) = self.expr_diverges(cond) {
-                    self.warn_expr(if_expr, origin, "block in `if`");
-                    if let Some(else_expr) = else_expr {
-                        self.warn_expr(else_expr, origin, "block in `if`");
-                    }
+                    self.warn_expr(if_expr, origin, "block in `if` or `while` expression");
                     return None
                 }
 
@@ -134,7 +131,7 @@ impl ReachabilityChecker<'_> {
                     self.expr_diverges(arm.body).is_some() || arm_diverges
                 });
 
-                //TODO this does not produce the nice error message (see expr_match.rs test)
+                //TODO this does not produce the nice error message (see e
                 if all_diverge {
                     Some(expr)
                 } else {
