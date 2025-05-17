@@ -6,6 +6,11 @@ LL |         break;
 LL |         "unreachable";
    |         ^^^^^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/lint-attr-non-item-node.rs:6:9
+   |
+LL |         break;
+   |         ^^^^^
 note: the lint level is defined here
   --> $DIR/lint-attr-non-item-node.rs:4:12
    |

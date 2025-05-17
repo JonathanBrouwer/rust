@@ -1,11 +1,16 @@
-warning: unreachable block in `if` or `while` expression
+warning: unreachable block in `if`
   --> $DIR/if-ret.rs:5:24
    |
 LL | fn foo() { if (return) { } }
-   |               -------- ^^^ unreachable block in `if` or `while` expression
+   |               -------- ^^^ unreachable block in `if`
    |               |
    |               any code following this expression is unreachable
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/if-ret.rs:5:15
+   |
+LL | fn foo() { if (return) { } }
+   |               ^^^^^^^^
    = note: `#[warn(unreachable_code)]` on by default
 
 warning: 1 warning emitted

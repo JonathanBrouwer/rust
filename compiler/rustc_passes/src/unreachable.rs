@@ -66,14 +66,12 @@ impl ReachabilityChecker<'_> {
 
                 self.check_expression_resolving_type_is_not_inhabited(expr)
             },
-            ExprKind::Lit(_) => {
-                None
-            },
             ExprKind::If(cond, if_expr, else_expr) => {
+                //eprintln!("{:?} {:?} {:?}", cond, if_expr, else_expr);
                 if let Some(origin) = self.expr_diverges(cond) {
-                    self.warn_expr(if_expr, origin, "expression");
+                    self.warn_expr(if_expr, origin, "block in `if`");
                     if let Some(else_expr) = else_expr {
-                        self.warn_expr(else_expr, origin, "expression");
+                        self.warn_expr(else_expr, origin, "block in `if`");
                     }
                     return None
                 }
@@ -103,7 +101,17 @@ impl ReachabilityChecker<'_> {
             ExprKind::InlineAsm(_) => {
                 self.check_expression_resolving_type_is_not_inhabited(expr)
             },
-            _ => {
+            ExprKind::Closure(closure) => {
+                self.expr_diverges(self.tcx.hir_body(closure.body).value);
+                None
+            }
+            ExprKind::Let(let_expr) => {
+                self.expr_diverges(let_expr.init)
+            }
+            ExprKind::DropTemps(drop_expr) => {
+                self.expr_diverges(drop_expr)
+            }
+            ExprKind::Lit(_) | _ => {
                 None
                 //TODO
             },
@@ -166,7 +174,6 @@ impl ReachabilityChecker<'_> {
             ItemKind::Fn {body, ..} => {
                 self.expr_diverges(self.tcx.hir_body(body).value);
             }
-
             _ => {
                 //TODO
             }
