@@ -6,6 +6,11 @@ LL |     match v { }
 LL |     let x = 2;
    |     ^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/match-no-arms-unreachable-after.rs:7:5
+   |
+LL |     match v { }
+   |     ^^^^^^^^^^^
 note: the lint level is defined here
   --> $DIR/match-no-arms-unreachable-after.rs:2:9
    |

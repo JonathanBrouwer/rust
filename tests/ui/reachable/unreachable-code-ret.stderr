@@ -6,6 +6,11 @@ LL |     return;
 LL |     println!("Paul is dead");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/unreachable-code-ret.rs:4:5
+   |
+LL |     return;
+   |     ^^^^^^
 note: the lint level is defined here
   --> $DIR/unreachable-code-ret.rs:1:9
    |
