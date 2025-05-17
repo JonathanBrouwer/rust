@@ -2,12 +2,18 @@
 
 #![allow(unused_variables)]
 #![allow(dead_code)]
-#![deny(unreachable_code)]
+#![warn(unreachable_code)]
 
 fn foo() {
     // No error here.
     let x = false && (return);
     println!("I am not dead.");
+}
+
+fn bar() {
+    // But this diverges
+    let x = (return) && true; //~ WARNING unreachable expression
+    println!("But I am.");
 }
 
 fn main() { }

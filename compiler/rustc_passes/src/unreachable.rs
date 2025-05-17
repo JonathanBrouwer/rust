@@ -1,5 +1,5 @@
 use tracing::debug;
-use rustc_ast::InlineAsmOptions;
+use rustc_ast::{BinOpKind, InlineAsmOptions};
 use rustc_hir::def::*;
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Stmt, StmtKind};
@@ -132,10 +132,17 @@ impl ReachabilityChecker<'_> {
             ExprKind::UnsafeBinderCast(_, expr, _) => {
                 self.expr_diverges(expr)
             }
-            ExprKind::Binary(_bin_op, left,right) => {
+            ExprKind::Binary(bin_op, left,right) => {
                 let left_origin = self.expr_diverges(left);
                 let right_origin = self.expr_diverges(right);
-                if let Some(origin) = left_origin.or(right_origin) {
+                // For short-circuiting binary operators, the entire expression only diverges if the left operand does
+                let combined = if bin_op.node == BinOpKind::And || bin_op.node == BinOpKind::Or {
+                    left_origin
+                } else {
+                    left_origin.or(right_origin)
+                };
+
+                if let Some(origin) = combined {
                     self.warn_expr(expr, origin, "expression")
                 }
                 None
