@@ -1,11 +1,17 @@
 error: unreachable expression
-  --> $DIR/expr_tup.rs:9:38
+  --> $DIR/expr_tup.rs:9:29
    |
 LL |     let x: (usize, usize) = (return, 2);
-   |                              ------  ^ unreachable expression
-   |                              |
-   |                              any code following this expression is unreachable
+   |                             ^------^^^^
+   |                             ||
+   |                             |any code following this expression is unreachable
+   |                             unreachable expression
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_tup.rs:9:30
+   |
+LL |     let x: (usize, usize) = (return, 2);
+   |                              ^^^^^^
 note: the lint level is defined here
   --> $DIR/expr_tup.rs:4:9
    |
@@ -20,6 +26,12 @@ LL |     let x: (usize, usize) = (2, return);
    |                             |   |
    |                             |   any code following this expression is unreachable
    |                             unreachable expression
+   |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/expr_tup.rs:14:33
+   |
+LL |     let x: (usize, usize) = (2, return);
+   |                                 ^^^^^^
 
 error: aborting due to 2 previous errors
 
