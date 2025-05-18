@@ -244,8 +244,12 @@ impl ReachabilityChecker<'_> {
             previous_diverged = self.expr_diverges(expr);
         }
 
-        previous_diverged
-
+        // If the block is targeted by a break, it can always be escaped
+        if b.targeted_by_break {
+            None
+        } else {
+            previous_diverged
+        }
     }
 
     fn stmt_diverges<'tcx>(&'tcx self, stmt: &'tcx Stmt) -> Option<&'tcx Expr> {
