@@ -18,8 +18,7 @@ struct ReachabilityChecker<'tcx> {
 
 impl ReachabilityChecker<'_> {
     fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
-        // Do not warn on the desugaring of try blocks
-        if expr.span.is_desugaring(DesugaringKind::TryBlock) || expr.span.is_desugaring(DesugaringKind::Contract) {
+        if expr.span.is_desugaring(DesugaringKind::Contract) {
             return
         }
 
@@ -38,8 +37,7 @@ impl ReachabilityChecker<'_> {
     }
 
     fn warn_stmt(&self, stmt: &Stmt, origin: &Expr) {
-        // Do not warn on the desugaring of try blocks
-        if stmt.span.is_desugaring(DesugaringKind::TryBlock) || stmt.span.is_desugaring(DesugaringKind::Contract) {
+        if stmt.span.is_desugaring(DesugaringKind::Contract) {
             return
         }
 
@@ -165,7 +163,7 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             },
-            ExprKind::Unary(_, inner) | ExprKind::Type(inner, _) => {
+            ExprKind::Unary(_, inner) | ExprKind::Type(inner, _) | ExprKind::Field(inner, _) | ExprKind::AddrOf(_, _, inner) | ExprKind::Become(inner) => {
                 if let Some(origin) = self.expr_diverges(inner) {
                     self.warn_expr(expr, origin, "expression")
                 }
@@ -186,7 +184,7 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
-            ExprKind::Assign(left, right, _) | ExprKind::AssignOp(_, left, right) => {
+            ExprKind::Assign(left, right, _) | ExprKind::AssignOp(_, left, right) | ExprKind::Index(left, right, _) => {
                 let left_origin = self.expr_diverges(left);
                 let right_origin = self.expr_diverges(right);
                 if let Some(origin) = left_origin.or(right_origin) {
@@ -213,10 +211,12 @@ impl ReachabilityChecker<'_> {
                 }
                 None
             }
-            ExprKind::Lit(_) | _ => {
+            ExprKind::Lit(_) | ExprKind::ConstBlock(_) | ExprKind::Path(_) | ExprKind::OffsetOf(_, _) => {
                 None
-                //TODO
             },
+            ExprKind::Use(..) | ExprKind::Err(_) => {
+                None //TODO
+            }
         }
     }
 
