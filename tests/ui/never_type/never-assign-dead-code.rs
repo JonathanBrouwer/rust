@@ -8,6 +8,5 @@
 
 fn main() {
     let x: ! = panic!("aah"); //~ WARN unused
-    drop(x); //~ WARN unreachable
-    //~^ WARN unreachable
+    drop(x); //~ WARN unreachable statement
 }
