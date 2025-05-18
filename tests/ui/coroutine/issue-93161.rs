@@ -2,6 +2,7 @@
 //@ run-pass
 
 #![feature(never_type)]
+#![allow(unreachable_code, unused)]
 
 use std::future::Future;
 
@@ -36,7 +37,6 @@ async fn includes_never(crash: bool, x: u32) -> u32 {
     if !crash {
         return result;
     }
-    #[allow(unused)]
     let bad = never();
     result *= async { x + x }.await;
     drop(bad);
@@ -44,7 +44,6 @@ async fn includes_never(crash: bool, x: u32) -> u32 {
 }
 
 async fn partial_init(x: u32) -> u32 {
-    #[allow(unreachable_code)]
     let _x: (String, !) = (String::new(), return async { x + x }.await);
 }
 
