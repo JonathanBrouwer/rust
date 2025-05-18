@@ -11,6 +11,11 @@ LL | |             }
 LL | |         }
    | |_________^ unreachable expression
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/try-block-unreachable-code-lint.rs:39:9
+   |
+LL |         return;
+   |         ^^^^^^
 note: the lint level is defined here
   --> $DIR/try-block-unreachable-code-lint.rs:6:9
    |
@@ -24,6 +29,12 @@ LL |         Err(return)
    |         ^^^ ------ any code following this expression is unreachable
    |         |
    |         unreachable call
+   |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/try-block-unreachable-code-lint.rs:52:13
+   |
+LL |         Err(return)
+   |             ^^^^^^
 
 warning: unreachable expression
   --> $DIR/try-block-unreachable-code-lint.rs:63:9
@@ -35,6 +46,14 @@ LL | |         }
 LL |
 LL |           42
    |           ^^ unreachable expression
+   |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/try-block-unreachable-code-lint.rs:59:9
+   |
+LL | /         loop {
+LL | |             err()?;
+LL | |         }
+   | |_________^
 
 warning: 3 warnings emitted
 

@@ -18,9 +18,17 @@ struct ReachabilityChecker<'tcx> {
 
 impl ReachabilityChecker<'_> {
     fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
-        if expr.span.is_desugaring(DesugaringKind::Contract) {
-            return
+        match expr.span.desugaring_kind() {
+            Some(DesugaringKind::CondTemporary | DesugaringKind::Async | DesugaringKind::Await | DesugaringKind::Contract) => return,
+            _ => {}
         }
+        match expr.kind {
+            ExprKind::Call(_, [arg]) if expr.span.is_desugaring(DesugaringKind::TryBlock)
+                && arg.span.is_desugaring(DesugaringKind::TryBlock) => {
+                return
+            }
+            _ => {},
+        };
 
         let return_type = self.typeck_results.expr_ty(origin);
         self.tcx.emit_node_span_lint(
@@ -37,8 +45,9 @@ impl ReachabilityChecker<'_> {
     }
 
     fn warn_stmt(&self, stmt: &Stmt, origin: &Expr) {
-        if stmt.span.is_desugaring(DesugaringKind::Contract) {
-            return
+        match stmt.span.desugaring_kind() {
+            Some(DesugaringKind::CondTemporary | DesugaringKind::Async | DesugaringKind::Await) => return,
+            _ => {}
         }
 
         let return_type = self.typeck_results.expr_ty(origin);
@@ -69,7 +78,7 @@ impl ReachabilityChecker<'_> {
                         diverges = Some(div);
                     }
                 }
-                if let Some(diverges) = diverges {
+                if let Some(diverges) = diverges && !expr.span.is_desugaring(DesugaringKind::Contract) && !expr.span.is_desugaring(DesugaringKind::TryBlock) {
                     self.warn_expr(f, diverges, "call")
                 }
 
