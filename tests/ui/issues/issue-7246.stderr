@@ -6,6 +6,11 @@ LL |     return;
 LL |     if *ptr::null() {};
    |     ^^^^^^^^^^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/issue-7246.rs:6:5
+   |
+LL |     return;
+   |     ^^^^^^
 note: the lint level is defined here
   --> $DIR/issue-7246.rs:1:9
    |

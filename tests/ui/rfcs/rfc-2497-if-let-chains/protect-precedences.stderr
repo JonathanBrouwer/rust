@@ -6,6 +6,11 @@ LL |         if let _ = return true && false {};
    |                    |
    |                    any code following this expression is unreachable
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/protect-precedences.rs:13:20
+   |
+LL |         if let _ = return true && false {};
+   |                    ^^^^^^^^^^^^^^^^^^^^
    = note: `#[warn(unreachable_code)]` on by default
 
 warning: 1 warning emitted

@@ -6,7 +6,7 @@ use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, It
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self, RootVariableMinCaptureList, Ty, TyCtxt, TypeckResults, TypingEnv};
 use rustc_session::lint;
-use rustc_span::Span;
+use rustc_span::{DesugaringKind, Span};
 use crate::errors;
 use rustc_hir::QPath;
 
@@ -16,12 +16,13 @@ struct ReachabilityChecker<'tcx> {
     typing_env: TypingEnv<'tcx>
 }
 
-enum DivergingReason {
-    
-}
-
 impl ReachabilityChecker<'_> {
     fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
+        // Do not warn on the desugaring of try blocks
+        if expr.span.is_desugaring(DesugaringKind::TryBlock) || expr.span.is_desugaring(DesugaringKind::Contract) {
+            return
+        }
+
         let return_type = self.typeck_results.expr_ty(origin);
         self.tcx.emit_node_span_lint(
             lint::builtin::UNREACHABLE_CODE,
@@ -37,6 +38,11 @@ impl ReachabilityChecker<'_> {
     }
 
     fn warn_stmt(&self, stmt: &Stmt, origin: &Expr) {
+        // Do not warn on the desugaring of try blocks
+        if stmt.span.is_desugaring(DesugaringKind::TryBlock) || stmt.span.is_desugaring(DesugaringKind::Contract) {
+            return
+        }
+
         let return_type = self.typeck_results.expr_ty(origin);
         self.tcx.emit_node_span_lint(
             lint::builtin::UNREACHABLE_CODE,
@@ -112,7 +118,7 @@ impl ReachabilityChecker<'_> {
                 self.check_expression_resolving_type_is_not_inhabited(expr)
             },
             ExprKind::Closure(closure) => {
-                self.expr_diverges(self.tcx.hir_body(closure.body).value);
+                self.check_body(self.tcx.hir_body(closure.body));
                 None
             }
             ExprKind::Let(let_expr) => {
@@ -269,10 +275,20 @@ impl ReachabilityChecker<'_> {
             StmtKind::Expr(expr) | StmtKind::Semi(expr) => self.expr_diverges(expr),
         }
     }
+    fn check_body(&self, body: &Body) {
+        // Find never pattern
+        for param in body.params {
+            if param.pat.is_never_pattern() {
+
+            }
+        }
+        self.expr_diverges(body.value);
+    }
+
     fn check_item(&self, item: &Item) {
         match item.kind {
             ItemKind::Fn {body, ..} => {
-                self.expr_diverges(self.tcx.hir_body(body).value);
+                self.check_body(&self.tcx.hir_body(body))
             }
             _ => {
                 //TODO

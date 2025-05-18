@@ -6,6 +6,11 @@ LL |         panic!("foo");
 LL |         yield 69;
    |         ^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/gen_block_panic.rs:9:9
+   |
+LL |         panic!("foo");
+   |         ^^^^^^^^^^^^^
    = note: `#[warn(unreachable_code)]` on by default
 
 warning: 1 warning emitted

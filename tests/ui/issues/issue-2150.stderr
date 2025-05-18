@@ -6,6 +6,11 @@ LL |     panic!();
 LL |     for x in &v { i += 1; }
    |     ^^^^^^^^^^^^^^^^^^^^^^^ unreachable statement
    |
+note: this expression has type `!`, which is uninhabited
+  --> $DIR/issue-2150.rs:7:5
+   |
+LL |     panic!();
+   |     ^^^^^^^^
 note: the lint level is defined here
   --> $DIR/issue-2150.rs:1:9
    |
