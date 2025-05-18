@@ -6,7 +6,7 @@ use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, It
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self, RootVariableMinCaptureList, Ty, TyCtxt, TypeckResults, TypingEnv};
 use rustc_session::lint;
-use rustc_span::Span;
+use rustc_span::{DesugaringKind, Span};
 use crate::errors;
 use rustc_hir::QPath;
 
@@ -66,7 +66,10 @@ impl ReachabilityChecker<'_> {
                     }
                 }
                 if let Some(diverges) = diverges {
-                    self.warn_expr(f, diverges, "call")
+                    let skip_due_to_try_block = f.span.is_desugaring(DesugaringKind::TryBlock);
+                    if !skip_due_to_try_block {
+                        self.warn_expr(f, diverges, "call")
+                    }
                 }
 
                 // See PR #139782
@@ -91,9 +94,9 @@ impl ReachabilityChecker<'_> {
                 }
             },
             ExprKind::Loop(block, _,_, _span) => {
-                let _ = self.block_diverges(block);
+                let block_diverge = self.block_diverges(block);
 
-                self.check_expression_resolving_type_is_not_inhabited(expr)
+                block_diverge.or(self.check_expression_resolving_type_is_not_inhabited(expr))
             }
             ExprKind::Continue(_) => {
                 Some(expr)
@@ -222,29 +225,43 @@ impl ReachabilityChecker<'_> {
         (!return_type.is_inhabited_from(self.tcx, m, self.typing_env)).then_some(expr)
     }
 
-    fn block_diverges<'tcx>(&'tcx self, b: &'tcx Block) -> Option<&'tcx Expr> {
+    fn block_diverges<'tcx>(&'tcx self, block: &'tcx Block) -> Option<&'tcx Expr> {
         let mut previous_diverged = None;
+        let mut non_diverging_statement = None;
+        let mut skip_due_to_try_block = block.expr.is_some_and(|expr|matches!(expr.kind, ExprKind::MethodCall(..) | ExprKind::Call(..)) && expr.span.is_desugaring(DesugaringKind::TryBlock));
 
-        for stmt in b.stmts {
-            if let StmtKind::Item(..) = stmt.kind {
-                continue
+        for stmt in block.stmts {
+            match (previous_diverged, self.stmt_diverges(stmt)) {
+                (None, Some(expr)) => {
+                    previous_diverged=Some(expr)
+                }
+                (Some(origin), None) => {
+                    non_diverging_statement = Some(stmt);
+                    self.warn_stmt(stmt, origin);
+                }
+                (Some(origin), Some(expr)) => {
+                    self.warn_expr(expr,origin, "expression")
+                }
+                (None, None) => {
+                    non_diverging_statement = Some(stmt);
+                }
             }
-            if let Some(origin) = previous_diverged {
-                self.warn_stmt(stmt, origin);
-                return None
-            }
-            previous_diverged = self.stmt_diverges(stmt);
         }
 
-        if let Some(expr) = b.expr {
-            if let Some(origin) = previous_diverged {
+
+        if let Some(expr) = block.expr {
+            if let Some(origin) = previous_diverged && !skip_due_to_try_block {
                 self.warn_expr(expr, origin, "expression");
-                return None
             }
+
             previous_diverged = self.expr_diverges(expr);
         }
 
-        previous_diverged
+        if skip_due_to_try_block {
+            None
+        } else {
+            previous_diverged
+        }
 
     }
 
@@ -252,12 +269,10 @@ impl ReachabilityChecker<'_> {
         match stmt.kind {
             StmtKind::Let(stmt) => {
                 let init_diverges = stmt.init.and_then(|expr| self.expr_diverges(expr));
-                let else_diverges = stmt.els.is_none_or(|block| self.block_diverges(block).is_some());
-                if else_diverges {
-                    init_diverges
-                } else {
-                    None
-                }
+
+                init_diverges.or({
+                    stmt.els.map(|block|self.block_diverges(block))?
+                })
             }
             StmtKind::Item(_item) => {
                 None
