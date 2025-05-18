@@ -8,6 +8,7 @@ use rustc_middle::ty::{self, RootVariableMinCaptureList, Ty, TyCtxt, TypeckResul
 use rustc_session::lint;
 use rustc_span::Span;
 use crate::errors;
+use rustc_hir::QPath;
 
 struct ReachabilityChecker<'tcx> {
     tcx: TyCtxt<'tcx>,
@@ -20,7 +21,6 @@ enum DivergingReason {
 }
 
 impl ReachabilityChecker<'_> {
-
     fn warn_expr(&self, expr: &Expr, origin: &Expr, descr: &'static str) {
         let return_type = self.typeck_results.expr_ty(origin);
         self.tcx.emit_node_span_lint(
@@ -58,6 +58,7 @@ impl ReachabilityChecker<'_> {
                 self.block_diverges(b)
             }
             ExprKind::MethodCall(_,f, args,_) | ExprKind::Call(f, args) => {
+                let is_ctor = |f: &Expr<'_>| matches!(f.kind, ExprKind::Path(QPath::Resolved(_, path)) if matches!(path.res, Res::Def(DefKind::Ctor(_, _), _)));
                 let mut diverges = None;
                 for arg in args {
                     if let Some(div) = self.expr_diverges(arg) {
@@ -68,7 +69,12 @@ impl ReachabilityChecker<'_> {
                     self.warn_expr(f, diverges, "call")
                 }
 
-                self.check_expression_resolving_type_is_not_inhabited(expr)
+                // See PR #139782
+                if !is_ctor(f) {
+                    self.check_expression_resolving_type_is_not_inhabited(expr)
+                } else {
+                    None
+                }
             },
             ExprKind::If(cond, if_expr, else_expr) => {
                 if let Some(origin) = self.expr_diverges(cond) {
