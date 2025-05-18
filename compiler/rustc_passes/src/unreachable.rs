@@ -2,7 +2,7 @@ use tracing::debug;
 use rustc_ast::{BinOpKind, InlineAsmOptions};
 use rustc_hir::def::*;
 use rustc_hir::def_id::LocalDefId;
-use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Stmt, StmtKind, StructTailExpr};
+use rustc_hir::{Block, Body, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Item, ItemKind, Node, Param, Stmt, StmtKind, StructTailExpr};
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self, RootVariableMinCaptureList, Ty, TyCtxt, TypeckResults, TypingEnv};
 use rustc_session::lint;
@@ -263,7 +263,9 @@ impl ReachabilityChecker<'_> {
             StmtKind::Let(stmt) => {
                 let init_diverges = stmt.init.and_then(|expr| self.expr_diverges(expr));
                 let else_diverges = stmt.els.is_none_or(|block| self.block_diverges(block).is_some());
-                if else_diverges {
+                if stmt.pat.is_never_pattern() {
+                    stmt.init //TODO wrong, should be pat
+                } else if else_diverges {
                     init_diverges
                 } else {
                     None
@@ -279,10 +281,47 @@ impl ReachabilityChecker<'_> {
         // Find never pattern
         for param in body.params {
             if param.pat.is_never_pattern() {
-
+                self.mark_expression_unreachable(body.value, param);
             }
         }
         self.expr_diverges(body.value);
+    }
+
+    fn mark_expression_unreachable(&self, expr: &Expr, param: &Param) {
+        match expr.kind {
+            ExprKind::Block(block, _) => {
+                if let Some(stmt) = block.stmts.first() {
+                    //TODO better error
+                    self.tcx.emit_node_span_lint(
+                        lint::builtin::UNREACHABLE_CODE,
+                        stmt.hir_id,
+                        stmt.span,
+                        errors::UnreachableDueToUninhabited {
+                            expr: stmt.span,
+                            orig: param.span,
+                            descr: "statement",
+                            ty: self.tcx.types.never,
+                        },
+                    );
+                } else if let Some(expr) = block.expr {
+                    self.mark_expression_unreachable(expr, param);
+                }
+            }
+            _ => {
+                //TODO better error
+                self.tcx.emit_node_span_lint(
+                    lint::builtin::UNREACHABLE_CODE,
+                    expr.hir_id,
+                    expr.span,
+                    errors::UnreachableDueToUninhabited {
+                        expr: expr.span,
+                        orig: param.span,
+                        descr: "statement",
+                        ty: self.tcx.types.never,
+                    },
+                );
+            }
+        }
     }
 
     fn check_item(&self, item: &Item) {
