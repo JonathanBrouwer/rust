@@ -125,23 +125,24 @@ impl ReachabilityChecker<'_> {
                 self.expr_diverges(drop_expr)
             }
             ExprKind::Match(match_expr, arms, _) => {
-                if let Some(match_orig) = self.expr_diverges(match_expr) {
-                    self.warn_expr(expr, match_orig, "expression");
-                }
-
+                let diverging_match_expr = self.expr_diverges(match_expr);
+                let diverging_guard = arms.iter().find_map(|arm|arm.guard.and_then(|expr|self.expr_diverges(expr)));
                 let all_diverge = arms.iter().all(|arm| {
-                    let arm_diverges = if let Some(origin) = arm.guard.and_then(|guard| self.expr_diverges(guard)) {
-                        self.warn_expr(arm.body, origin, "expression");
-                        true
-                    } else {
-                        false
-                    };
-
-                    self.expr_diverges(arm.body).is_some() || arm_diverges
+                    let diverging_arm = arm.guard.and_then(|guard|self.expr_diverges(guard));
+                    if let Some(origin) = diverging_arm {
+                        self.warn_expr(arm.body,origin, "expression");
+                    }
+                    self.expr_diverges(arm.body).is_some()
                 });
 
                 //TODO this does not produce the nice error message (see e
-                if all_diverge {
+                if let Some(origin) = diverging_match_expr {
+                    self.warn_expr(expr, origin, "expression");
+                    None
+                } else if let Some(origin) = diverging_guard {
+                    self.warn_expr(expr, origin, "expression");
+                    None
+                } else if all_diverge {
                     Some(expr)
                 } else {
                     None
