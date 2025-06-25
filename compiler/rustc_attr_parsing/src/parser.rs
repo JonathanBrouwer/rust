@@ -12,7 +12,7 @@ use rustc_ast::{AttrArgs, DelimArgs, Expr, ExprKind, LitKind, MetaItemLit, Norma
 use rustc_ast_pretty::pprust;
 use rustc_errors::DiagCtxtHandle;
 use rustc_hir::{self as hir, AttrPath};
-use rustc_span::{ErrorGuaranteed, Ident, Span, Symbol, kw, sym};
+use rustc_span::{Ident, Span, Symbol, kw, sym};
 
 pub struct SegmentIterator<'a> {
     offset: usize,
@@ -123,21 +123,21 @@ impl<'a> ArgParser<'a> {
         }
     }
 
-    pub fn from_attr_args<'sess>(value: &'a AttrArgs, dcx: DiagCtxtHandle<'sess>) -> Self {
-        match value {
+    pub fn from_attr_args<'sess>(value: &'a AttrArgs, dcx: DiagCtxtHandle<'sess>) -> Option<Self> {
+        Some(match value {
             AttrArgs::Empty => Self::NoArgs,
             AttrArgs::Delimited(args) if args.delim == Delimiter::Parenthesis => {
-                Self::List(MetaItemListParser::new(args, dcx))
+                Self::List(MetaItemListParser::new(args, dcx)?)
             }
-            AttrArgs::Delimited(args) => {
-                Self::List(MetaItemListParser { sub_parsers: vec![], span: args.dspan.entire() })
+            AttrArgs::Delimited(_args) => {
+                todo!();
             }
             AttrArgs::Eq { eq_span, expr } => Self::NameValue(NameValueParser {
                 eq_span: *eq_span,
                 value: expr_to_lit(dcx, &expr, *eq_span),
                 value_span: expr.span,
             }),
-        }
+        })
     }
 
     /// Asserts that this MetaItem is a list
@@ -189,7 +189,6 @@ impl<'a> ArgParser<'a> {
 pub enum MetaItemOrLitParser<'a> {
     MetaItemParser(MetaItemParser<'a>),
     Lit(MetaItemLit),
-    Err(Span, ErrorGuaranteed),
 }
 
 impl<'a> MetaItemOrLitParser<'a> {
@@ -199,7 +198,6 @@ impl<'a> MetaItemOrLitParser<'a> {
                 generic_meta_item_parser.span()
             }
             MetaItemOrLitParser::Lit(meta_item_lit) => meta_item_lit.span,
-            MetaItemOrLitParser::Err(span, _) => *span,
         }
     }
 
@@ -249,11 +247,11 @@ impl<'a> Debug for MetaItemParser<'a> {
 impl<'a> MetaItemParser<'a> {
     /// Create a new parser from a [`NormalAttr`], which is stored inside of any
     /// [`ast::Attribute`](rustc_ast::Attribute)
-    pub fn from_attr<'sess>(attr: &'a NormalAttr, dcx: DiagCtxtHandle<'sess>) -> Self {
-        Self {
+    pub fn from_attr<'sess>(attr: &'a NormalAttr, dcx: DiagCtxtHandle<'sess>) -> Option<Self> {
+        Some(Self {
             path: PathParser::Ast(&attr.item.path),
-            args: ArgParser::from_attr_args(&attr.item.args, dcx),
-        }
+            args: ArgParser::from_attr_args(&attr.item.args, dcx)?,
+        })
     }
 }
 
@@ -469,7 +467,7 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
                         inner_tokens.iter(),
                         dspan.entire(),
                         self.dcx,
-                    )),
+                    )?),
                 }
             }
             Some(TokenTree::Delimited(_, ..)) => {
@@ -493,13 +491,11 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
         }))
     }
 
-    fn parse(mut self, span: Span) -> MetaItemListParser<'a> {
+    fn parse(mut self, span: Span) -> Option<MetaItemListParser<'a>> {
         let mut sub_parsers = Vec::new();
 
         while !self.done() {
-            let Some(n) = self.next() else {
-                continue;
-            };
+            let n = self.next()?;
             sub_parsers.push(n);
 
             match self.inside_delimiters.peek() {
@@ -510,7 +506,7 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
             }
         }
 
-        MetaItemListParser { sub_parsers, span }
+        Some(MetaItemListParser { sub_parsers, span })
     }
 }
 
@@ -521,11 +517,11 @@ pub struct MetaItemListParser<'a> {
 }
 
 impl<'a> MetaItemListParser<'a> {
-    fn new<'sess>(delim: &'a DelimArgs, dcx: DiagCtxtHandle<'sess>) -> Self {
+    fn new<'sess>(delim: &'a DelimArgs, dcx: DiagCtxtHandle<'sess>) -> Option<Self> {
         MetaItemListParser::new_tts(delim.tokens.iter(), delim.dspan.entire(), dcx)
     }
 
-    fn new_tts<'sess>(tts: TokenStreamIter<'a>, span: Span, dcx: DiagCtxtHandle<'sess>) -> Self {
+    fn new_tts<'sess>(tts: TokenStreamIter<'a>, span: Span, dcx: DiagCtxtHandle<'sess>) -> Option<Self> {
         MetaItemListParserContext { inside_delimiters: tts.peekable(), dcx }.parse(span)
     }
 
