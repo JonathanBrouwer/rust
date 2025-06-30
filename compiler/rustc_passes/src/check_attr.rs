@@ -197,6 +197,9 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 Attribute::Parsed(AttributeKind::MayDangle(attr_span)) => {
                     self.check_may_dangle(hir_id, *attr_span)
                 }
+                Attribute::Parsed(AttributeKind::MacroUse(attr_span)) => {
+                    self.check_macro_use(hir_id, sym::macro_use, *attr_span, target)
+                }
                 Attribute::Parsed(AttributeKind::MustUse { span, .. }) => {
                     self.check_must_use(hir_id, *span, target)
                 }
@@ -287,8 +290,8 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                         [sym::link_ordinal, ..] => self.check_link_ordinal(attr, span, target),
                         [sym::link, ..] => self.check_link(hir_id, attr, span, target),
                         [sym::link_section, ..] => self.check_link_section(hir_id, attr, span, target),
-                        [sym::macro_use, ..] | [sym::macro_escape, ..] => {
-                            self.check_macro_use(hir_id, attr, target)
+                        [sym::macro_escape, ..] => {
+                            self.check_macro_use(hir_id, sym::macro_escape, attr.span(), target)
                         }
                         [sym::path, ..] => self.check_generic_attr(hir_id, attr, target, Target::Mod),
                         [sym::macro_export, ..] => self.check_macro_export(hir_id, attr, target),
@@ -2253,17 +2256,14 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         }
     }
 
-    fn check_macro_use(&self, hir_id: HirId, attr: &Attribute, target: Target) {
-        let Some(name) = attr.name() else {
-            return;
-        };
+    fn check_macro_use(&self, hir_id: HirId, name: Symbol, attr_span: Span, target: Target) {
         match target {
             Target::ExternCrate | Target::Mod => {}
             _ => {
                 self.tcx.emit_node_span_lint(
                     UNUSED_ATTRIBUTES,
                     hir_id,
-                    attr.span(),
+                    attr_span,
                     errors::MacroUse { name },
                 );
             }
@@ -2333,13 +2333,23 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                     }
                     return;
                 }
+                AttributeKind::MacroUse(span) => {
+                    self.tcx.emit_node_span_lint(
+                        UNUSED_ATTRIBUTES,
+                        hir_id,
+                        *span,
+                        errors::Unused {
+                            attr_span: *span,
+                            note: errors::UnusedNote::EmptyList { name: sym::macro_use },
+                        },
+                    );
+                }
                 _ => {}
             }
         }
 
         // Warn on useless empty attributes.
         let note = if attr.has_any_name(&[
-            sym::macro_use,
             sym::allow,
             sym::expect,
             sym::warn,

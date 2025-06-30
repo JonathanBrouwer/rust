@@ -41,6 +41,7 @@ pub(crate) mod stability;
 pub(crate) mod traits;
 pub(crate) mod transparency;
 pub(crate) mod util;
+pub(crate) mod macro_attrs;
 
 type AcceptFn<T, S> = for<'sess> fn(&mut T, &mut AcceptContext<'_, 'sess, S>, &ArgParser<'_>);
 type AcceptMapping<T, S> = &'static [(&'static [Symbol], AttributeTemplate, AcceptFn<T, S>)];
