@@ -23,6 +23,7 @@ impl AttributeKind {
             Deprecation { .. } => Yes,
             DocComment { .. } => Yes,
             ExportName { .. } => Yes,
+            Ignore { .. } => No,
             Inline(..) => No,
             MacroTransparency(..) => Yes,
             Repr(..) => No,

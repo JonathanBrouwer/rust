@@ -197,6 +197,9 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 Attribute::Parsed(AttributeKind::MayDangle(attr_span)) => {
                     self.check_may_dangle(hir_id, *attr_span)
                 }
+                Attribute::Parsed(AttributeKind::Ignore { span, .. }) => {
+                    self.check_generic_attr(hir_id, sym::ignore, *span, target, Target::Fn)
+                }
                 Attribute::Parsed(AttributeKind::MustUse { span, .. }) => {
                     self.check_must_use(hir_id, *span, target)
                 }
@@ -290,16 +293,16 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                         [sym::macro_use, ..] | [sym::macro_escape, ..] => {
                             self.check_macro_use(hir_id, attr, target)
                         }
-                        [sym::path, ..] => self.check_generic_attr(hir_id, attr, target, Target::Mod),
+                        [sym::path, ..] => self.check_generic_attr_unparsed(hir_id, attr, target, Target::Mod),
                         [sym::macro_export, ..] => self.check_macro_export(hir_id, attr, target),
-                        [sym::ignore, ..] | [sym::should_panic, ..] => {
-                            self.check_generic_attr(hir_id, attr, target, Target::Fn)
+                        [sym::should_panic, ..] => {
+                            self.check_generic_attr_unparsed(hir_id, attr, target, Target::Fn)
                         }
                         [sym::automatically_derived, ..] => {
-                            self.check_generic_attr(hir_id, attr, target, Target::Impl)
+                            self.check_generic_attr_unparsed(hir_id, attr, target, Target::Impl)
                         }
                         [sym::no_implicit_prelude, ..] => {
-                            self.check_generic_attr(hir_id, attr, target, Target::Mod)
+                            self.check_generic_attr_unparsed(hir_id, attr, target, Target::Mod)
                         }
                         [sym::rustc_object_lifetime_default, ..] => self.check_object_lifetime_default(hir_id),
                         [sym::proc_macro, ..] => {
@@ -309,7 +312,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                             self.check_proc_macro(hir_id, target, ProcMacroKind::Attribute);
                         }
                         [sym::proc_macro_derive, ..] => {
-                            self.check_generic_attr(hir_id, attr, target, Target::Fn);
+                            self.check_generic_attr_unparsed(hir_id, attr, target, Target::Fn);
                             self.check_proc_macro(hir_id, target, ProcMacroKind::Derive)
                         }
                         [sym::autodiff_forward, ..] | [sym::autodiff_reverse, ..] => {
@@ -618,7 +621,8 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         }
     }
 
-    fn check_generic_attr(
+    /// FIXME: Remove when all attributes are ported to the new parser
+    fn check_generic_attr_unparsed(
         &self,
         hir_id: HirId,
         attr: &Attribute,
@@ -635,6 +639,27 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 attr.span(),
                 errors::OnlyHasEffectOn {
                     attr_name,
+                    target_name: allowed_target.name().replace(' ', "_"),
+                },
+            );
+        }
+    }
+
+    fn check_generic_attr(
+        &self,
+        hir_id: HirId,
+        attr_name: Symbol,
+        attr_span: Span,
+        target: Target,
+        allowed_target: Target,
+    ) {
+        if target != allowed_target {
+            self.tcx.emit_node_span_lint(
+                UNUSED_ATTRIBUTES,
+                hir_id,
+                attr_span,
+                errors::OnlyHasEffectOn {
+                    attr_name: attr_name.to_string(),
                     target_name: allowed_target.name().replace(' ', "_"),
                 },
             );

@@ -31,6 +31,7 @@ use crate::attributes::semantics::MayDangleParser;
 use crate::attributes::stability::{
     BodyStabilityParser, ConstStabilityIndirectParser, ConstStabilityParser, StabilityParser,
 };
+use crate::attributes::test_attrs::IgnoreParser;
 use crate::attributes::traits::SkipDuringMethodDispatchParser;
 use crate::attributes::transparency::TransparencyParser;
 use crate::attributes::{AttributeParser as _, Combine, Single};
@@ -121,6 +122,7 @@ attribute_parsers!(
         Single<ConstStabilityIndirectParser>,
         Single<DeprecationParser>,
         Single<ExportNameParser>,
+        Single<IgnoreParser>,
         Single<InlineParser>,
         Single<LinkNameParser>,
         Single<LoopMatchParser>,
