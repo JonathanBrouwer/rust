@@ -27,6 +27,7 @@ use crate::attributes::lint_helpers::{AsPtrParser, PubTransparentParser};
 use crate::attributes::loop_match::{ConstContinueParser, LoopMatchParser};
 use crate::attributes::must_use::MustUseParser;
 use crate::attributes::repr::{AlignParser, ReprParser};
+use crate::attributes::rustc_internal::RustcObjectLifetimeDefaultParser;
 use crate::attributes::semantics::MayDangleParser;
 use crate::attributes::stability::{
     BodyStabilityParser, ConstStabilityIndirectParser, ConstStabilityParser, StabilityParser,
@@ -132,6 +133,7 @@ attribute_parsers!(
         Single<OptimizeParser>,
         Single<PubTransparentParser>,
         Single<RustcForceInlineParser>,
+        Single<RustcObjectLifetimeDefaultParser>,
         Single<SkipDuringMethodDispatchParser>,
         Single<TrackCallerParser>,
         Single<TransparencyParser>,

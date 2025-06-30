@@ -195,7 +195,10 @@ pub enum UsedBy {
 pub enum AttributeKind {
     // tidy-alphabetical-start
     /// Represents `#[align(N)]`.
-    Align { align: Align, span: Span },
+    Align {
+        align: Align,
+        span: Span,
+    },
 
     /// Represents `#[rustc_allow_const_fn_unstable]`.
     AllowConstFnUnstable(ThinVec<Symbol>),
@@ -237,10 +240,18 @@ pub enum AttributeKind {
     ConstStabilityIndirect,
 
     /// Represents [`#[deprecated]`](https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-deprecated-attribute).
-    Deprecation { deprecation: Deprecation, span: Span },
+    Deprecation {
+        deprecation: Deprecation,
+        span: Span,
+    },
 
     /// Represents [`#[doc]`](https://doc.rust-lang.org/stable/rustdoc/write-documentation/the-doc-attribute.html).
-    DocComment { style: AttrStyle, kind: CommentKind, span: Span, comment: Symbol },
+    DocComment {
+        style: AttrStyle,
+        kind: CommentKind,
+        span: Span,
+        comment: Symbol,
+    },
 
     /// Represents [`#[export_name]`](https://doc.rust-lang.org/reference/abi.html#the-export_name-attribute).
     ExportName {
@@ -261,7 +272,10 @@ pub enum AttributeKind {
     Inline(InlineAttr, Span),
 
     /// Represents `#[link_name]`.
-    LinkName { name: Symbol, span: Span },
+    LinkName {
+        name: Symbol,
+        span: Span,
+    },
 
     /// Represents `#[loop_match]`.
     LoopMatch(Span),
@@ -294,8 +308,14 @@ pub enum AttributeKind {
     /// Represents [`#[repr]`](https://doc.rust-lang.org/stable/reference/type-layout.html#representations).
     Repr(ThinVec<(ReprAttr, Span)>),
 
+    RustcObjectLifetimeDefault,
+
     /// Represents `#[rustc_skip_during_method_dispatch]`.
-    SkipDuringMethodDispatch { array: bool, boxed_slice: bool, span: Span },
+    SkipDuringMethodDispatch {
+        array: bool,
+        boxed_slice: bool,
+        span: Span,
+    },
 
     /// Represents `#[stable]`, `#[unstable]` and `#[rustc_allowed_through_unstable_modules]`.
     Stability {
@@ -308,6 +328,9 @@ pub enum AttributeKind {
     TrackCaller(Span),
 
     /// Represents `#[used]`
-    Used { used_by: UsedBy, span: Span },
+    Used {
+        used_by: UsedBy,
+        span: Span,
+    },
     // tidy-alphabetical-end
 }

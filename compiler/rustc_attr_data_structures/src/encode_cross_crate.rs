@@ -38,6 +38,7 @@ impl AttributeKind {
             NoMangle(..) => No,
             Optimize(..) => No,
             PubTransparent(..) => Yes,
+            RustcObjectLifetimeDefault => No,
             SkipDuringMethodDispatch { .. } => No,
             TrackCaller(..) => Yes,
             Used { .. } => No,
