@@ -628,7 +628,9 @@ impl<'sess, S: Stage> AttributeParser<'sess, S> {
                 ast::AttrKind::Normal(n) => {
                     attr_paths.push(PathParser::Ast(&n.item.path));
 
-                    let parser = MetaItemParser::from_attr(n, self.dcx());
+                    let Some(parser) = MetaItemParser::from_attr(n, self.dcx()) else {
+                        continue
+                    };
                     let path = parser.path();
                     let args = parser.args();
                     let parts = path.segments().map(|i| i.name).collect::<Vec<_>>();

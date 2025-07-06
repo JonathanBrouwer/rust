@@ -2205,7 +2205,7 @@ impl<'a> Parser<'a> {
             match MetaItemLit::from_token_lit(token_lit, span) {
                 Ok(lit) => lit,
                 Err(err) => {
-                    let guar = report_lit_error(&self.psess, err, token_lit, uninterpolated_span);
+                    let guar = report_lit_error(self.psess.dcx(), err, token_lit, uninterpolated_span);
                     // Pack possible quotes and prefixes from the original literal into
                     // the error literal's symbol so they can be pretty-printed faithfully.
                     let suffixless_lit = token::Lit::new(token_lit.kind, token_lit.symbol, None);

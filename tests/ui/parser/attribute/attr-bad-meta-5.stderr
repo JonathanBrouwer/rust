@@ -1,0 +1,19 @@
+error: expected unsuffixed literal, found `-`
+  --> $DIR/attr-bad-meta-5.rs:1:27
+   |
+LL | #[target_feature(enable = -1)]
+   |                           ^
+
+[Lit(MetaItemLit { symbol: "1", suffix: None, kind: Int(Pu128(1), Unsuffixed), span: $DIR/attr-bad-meta-5.rs:1:28: 1:29 (#0) })]
+error[E0539]: malformed `target_feature` attribute input
+  --> $DIR/attr-bad-meta-5.rs:1:1
+   |
+LL | #[target_feature(enable = -1)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^-^^
+   | |                          |
+   | |                          expected this to be of the form `enable = "..."`
+   | help: must be of the form: `#[target_feature(enable = "feat1, feat2")]`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0539`.

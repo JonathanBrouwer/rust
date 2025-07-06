@@ -90,7 +90,7 @@ pub fn parse_meta<'a>(psess: &'a ParseSess, attr: &Attribute) -> PResult<'a, Met
                             }
                         }
                         Err(err) => {
-                            let guar = report_lit_error(psess, err, token_lit, expr.span);
+                            let guar = report_lit_error(psess.dcx(), err, token_lit, expr.span);
                             let lit = ast::MetaItemLit {
                                 symbol: token_lit.symbol,
                                 suffix: token_lit.suffix,

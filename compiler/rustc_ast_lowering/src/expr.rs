@@ -425,7 +425,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         let lit_kind = match LitKind::from_token_lit(*token_lit) {
             Ok(lit_kind) => lit_kind,
             Err(err) => {
-                let guar = report_lit_error(&self.tcx.sess.psess, err, *token_lit, span);
+                let guar = report_lit_error(self.tcx.sess.psess.dcx(), err, *token_lit, span);
                 LitKind::Err(guar)
             }
         };

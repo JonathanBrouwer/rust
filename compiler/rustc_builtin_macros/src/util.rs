@@ -119,7 +119,7 @@ pub(crate) fn expr_to_spanned_string<'a>(
                 Ok((err, true))
             }
             Ok(ast::LitKind::Err(guar)) => Err(guar),
-            Err(err) => Err(report_lit_error(&cx.sess.psess, err, token_lit, expr.span)),
+            Err(err) => Err(report_lit_error(cx.sess.psess.dcx(), err, token_lit, expr.span)),
             _ => Ok((cx.dcx().struct_span_err(expr.span, err_msg), false)),
         },
         ast::ExprKind::Err(guar) => Err(guar),

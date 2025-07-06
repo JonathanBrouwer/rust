@@ -47,7 +47,7 @@ pub(crate) fn expand_concat(
                     guar = Some(guarantee);
                 }
                 Err(err) => {
-                    guar = Some(report_lit_error(&cx.sess.psess, err, token_lit, e.span));
+                    guar = Some(report_lit_error(cx.sess.psess.dcx(), err, token_lit, e.span));
                 }
             },
             // We also want to allow negative numeric literals.
@@ -56,7 +56,7 @@ pub(crate) fn expand_concat(
                     Ok(LitKind::Int(i, _)) => accumulator.push_str(&format!("-{i}")),
                     Ok(LitKind::Float(f, _)) => accumulator.push_str(&format!("-{f}")),
                     Err(err) => {
-                        guar = Some(report_lit_error(&cx.sess.psess, err, token_lit, e.span));
+                        guar = Some(report_lit_error(cx.sess.psess.dcx(), err, token_lit, e.span));
                     }
                     _ => missing_literal.push(e.span),
                 }
