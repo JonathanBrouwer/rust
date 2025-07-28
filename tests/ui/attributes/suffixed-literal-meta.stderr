@@ -94,5 +94,13 @@ LL | #[rustc_dummy = 1.0f64]
    |
    = help: instead of using a suffixed literal (`1u8`, `1.0f32`, etc.), use an unsuffixed version (`1`, `1.0`, etc.)
 
-error: aborting due to 12 previous errors
+error: suffixed literals are not allowed in attributes
+  --> $DIR/suffixed-literal-meta.rs:15:17
+   |
+LL | #[rustc_dummy = 1.0f64]
+   |                 ^^^^^^
+   |
+   = help: instead of using a suffixed literal (`1u8`, `1.0f32`, etc.), use an unsuffixed version (`1`, `1.0`, etc.)
+
+error: aborting due to 13 previous errors
 

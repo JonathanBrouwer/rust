@@ -10,9 +10,11 @@ use rustc_ast::token::{self, Delimiter, Token};
 use rustc_ast::tokenstream::{TokenStreamIter, TokenTree};
 use rustc_ast::{AttrArgs, DelimArgs, Expr, ExprKind, LitKind, MetaItemLit, NormalAttr, Path};
 use rustc_ast_pretty::pprust;
-use rustc_errors::DiagCtxtHandle;
 use rustc_hir::{self as hir, AttrPath};
+use rustc_session::errors::report_lit_error;
+use rustc_session::parse::ParseSess;
 use rustc_span::{ErrorGuaranteed, Ident, Span, Symbol, kw, sym};
+use crate::ShouldEmit;
 
 pub struct SegmentIterator<'a> {
     offset: usize,
@@ -123,18 +125,18 @@ impl<'a> ArgParser<'a> {
         }
     }
 
-    pub fn from_attr_args<'sess>(value: &'a AttrArgs, dcx: DiagCtxtHandle<'sess>) -> Self {
+    pub fn from_attr_args(value: &'a AttrArgs, psess: &ParseSess, should_emit: ShouldEmit) -> Self {
         match value {
             AttrArgs::Empty => Self::NoArgs,
             AttrArgs::Delimited(args) if args.delim == Delimiter::Parenthesis => {
-                Self::List(MetaItemListParser::new(args, dcx))
+                Self::List(MetaItemListParser::new(args, psess, should_emit ))
             }
             AttrArgs::Delimited(args) => {
                 Self::List(MetaItemListParser { sub_parsers: vec![], span: args.dspan.entire() })
             }
             AttrArgs::Eq { eq_span, expr } => Self::NameValue(NameValueParser {
                 eq_span: *eq_span,
-                value: expr_to_lit(dcx, &expr, *eq_span),
+                value: expr_to_lit(psess, &expr, should_emit),
                 value_span: expr.span,
             }),
         }
@@ -249,10 +251,10 @@ impl<'a> Debug for MetaItemParser<'a> {
 impl<'a> MetaItemParser<'a> {
     /// Create a new parser from a [`NormalAttr`], which is stored inside of any
     /// [`ast::Attribute`](rustc_ast::Attribute)
-    pub fn from_attr<'sess>(attr: &'a NormalAttr, dcx: DiagCtxtHandle<'sess>) -> Self {
+    pub fn from_attr(attr: &'a NormalAttr, psess: &ParseSess, should_emit: ShouldEmit) -> Self {
         Self {
             path: PathParser::Ast(&attr.item.path),
-            args: ArgParser::from_attr_args(&attr.item.args, dcx),
+            args: ArgParser::from_attr_args(&attr.item.args, psess, should_emit),
         }
     }
 }
@@ -318,26 +320,56 @@ impl NameValueParser {
     }
 }
 
-fn expr_to_lit(dcx: DiagCtxtHandle<'_>, expr: &Expr, span: Span) -> MetaItemLit {
-    // In valid code the value always ends up as a single literal. Otherwise, a dummy
-    // literal suffices because the error is handled elsewhere.
-    if let ExprKind::Lit(token_lit) = expr.kind
-        && let Ok(lit) = MetaItemLit::from_token_lit(token_lit, expr.span)
-    {
-        lit
-    } else {
-        let guar = dcx.span_delayed_bug(
-            span,
-            "expr in place where literal is expected (builtin attr parsing)",
-        );
-        MetaItemLit { symbol: sym::dummy, suffix: None, kind: LitKind::Err(guar), span }
+fn expr_to_lit(psess: &ParseSess, expr: &Expr, should_emit: ShouldEmit) -> MetaItemLit {
+    match expr.kind {
+        ExprKind::Lit(token_lit) => lit_token_to_lit(psess, token_lit, expr.span, should_emit),
+        _ => {
+            let msg = "attribute value must be a literal";
+            let mut err = psess.dcx().struct_span_err(expr.span, msg);
+            if let ExprKind::Err(_) = expr.kind {
+                err.downgrade_to_delayed_bug();
+            }
+            let guar = err.emit_unless_delay(!should_emit.should_emit());
+            MetaItemLit { symbol: sym::dummy, suffix: None, kind: LitKind::Err(guar), span: expr.span }
+        }
+    }
+}
+
+fn lit_token_to_lit(psess: &ParseSess, token_lit: token::Lit, span: Span, should_emit: ShouldEmit) -> MetaItemLit {
+    match MetaItemLit::from_token_lit(token_lit, span) {
+        Ok(lit) => {
+            if token_lit.suffix.is_some() {
+                let mut err = psess.dcx().struct_span_err(
+                    span,
+                    "suffixed literals are not allowed in attributes",
+                );
+                err.help(
+                    "instead of using a suffixed literal (`1u8`, `1.0f32`, etc.), \
+                                    use an unsuffixed version (`1`, `1.0`, etc.)",
+                );
+                err.emit_unless_delay(!should_emit.should_emit());
+            }
+            lit
+        },
+        Err(err) => {
+            let guar = if should_emit.should_emit() {
+                report_lit_error(psess, err, token_lit, span)
+            } else {
+                psess.dcx().span_delayed_bug(
+                    span,
+                    "expr in place where literal is expected (builtin attr parsing)",
+                )
+            };
+            MetaItemLit { symbol: token_lit.symbol, suffix: token_lit.suffix, kind: LitKind::Err(guar), span }
+        }
     }
 }
 
 struct MetaItemListParserContext<'a, 'sess> {
     // the tokens inside the delimiters, so `#[some::attr(a b c)]` would have `a b c` inside
     inside_delimiters: Peekable<TokenStreamIter<'a>>,
-    dcx: DiagCtxtHandle<'sess>,
+    psess: &'sess ParseSess,
+    should_emit: ShouldEmit
 }
 
 impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
@@ -345,7 +377,7 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
         self.inside_delimiters.peek().is_none()
     }
 
-    fn next_path(&mut self) -> Option<AttrPath> {
+    fn next_path(&mut self) -> Result<AttrPath, ErrorGuaranteed> {
         // FIXME: Share code with `parse_path`.
         let tt = self.inside_delimiters.next().map(|tt| TokenTree::uninterpolate(tt));
 
@@ -365,7 +397,7 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
                         vec![Ident::new(name, span)]
                     } else {
                         // else we have a single identifier path, that's all
-                        return Some(AttrPath {
+                        return Ok(AttrPath {
                             segments: vec![Ident::new(name, span)].into_boxed_slice(),
                             span,
                         });
@@ -398,7 +430,7 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
                     }
                 }
                 let span = span.with_hi(segments.last().unwrap().span.hi());
-                Some(AttrPath { segments: segments.into_boxed_slice(), span })
+                Ok(AttrPath { segments: segments.into_boxed_slice(), span })
             }
             TokenTree::Token(Token { kind, .. }, _) if kind.is_delim() => None,
             _ => {
@@ -414,7 +446,8 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
             Some(TokenTree::Delimited(.., Delimiter::Invisible(_), inner_tokens)) => {
                 MetaItemListParserContext {
                     inside_delimiters: inner_tokens.iter().peekable(),
-                    dcx: self.dcx,
+                    psess: self.psess,
+                    should_emit: self.should_emit
                 }
                 .value()
             }
@@ -434,20 +467,21 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
     /// where no path is given before the literal
     ///
     /// Some exceptions too for interpolated attributes which are already pre-processed
-    fn next(&mut self) -> Option<MetaItemOrLitParser<'a>> {
+    fn next(&mut self) -> Result<MetaItemOrLitParser<'a>, ErrorGuaranteed> {
         // a list element is either a literal
         if let Some(TokenTree::Token(token, _)) = self.inside_delimiters.peek()
-            && let Some(lit) = MetaItemLit::from_token(token)
+            && let Some(token_lit) = token::Lit::from_token(token)
         {
             self.inside_delimiters.next();
-            return Some(MetaItemOrLitParser::Lit(lit));
+            return Ok(MetaItemOrLitParser::Lit(lit_token_to_lit(self.psess, token_lit, token.span, self.should_emit)));
         } else if let Some(TokenTree::Delimited(.., Delimiter::Invisible(_), inner_tokens)) =
             self.inside_delimiters.peek()
         {
             self.inside_delimiters.next();
             return MetaItemListParserContext {
                 inside_delimiters: inner_tokens.iter().peekable(),
-                dcx: self.dcx,
+                psess: self.psess,
+                should_emit: self.should_emit
             }
             .next();
         }
@@ -468,14 +502,15 @@ impl<'a, 'sess> MetaItemListParserContext<'a, 'sess> {
                     args: ArgParser::List(MetaItemListParser::new_tts(
                         inner_tokens.iter(),
                         dspan.entire(),
-                        self.dcx,
+                        self.psess,
+                        self.should_emit
                     )),
                 }
             }
             Some(TokenTree::Delimited(_, ..)) => {
                 self.inside_delimiters.next();
                 // self.dcx.span_delayed_bug(span.entire(), "wrong delimiters");
-                return None;
+                return Err(ErrorGuaranteed::unchecked_error_guaranteed());
             }
             Some(TokenTree::Token(Token { kind: token::Eq, span }, _)) => {
                 self.inside_delimiters.next();
@@ -521,12 +556,12 @@ pub struct MetaItemListParser<'a> {
 }
 
 impl<'a> MetaItemListParser<'a> {
-    fn new<'sess>(delim: &'a DelimArgs, dcx: DiagCtxtHandle<'sess>) -> Self {
-        MetaItemListParser::new_tts(delim.tokens.iter(), delim.dspan.entire(), dcx)
+    fn new(delim: &'a DelimArgs, psess: &ParseSess, should_emit: ShouldEmit) -> Self {
+        MetaItemListParser::new_tts(delim.tokens.iter(), delim.dspan.entire(), psess, should_emit)
     }
 
-    fn new_tts<'sess>(tts: TokenStreamIter<'a>, span: Span, dcx: DiagCtxtHandle<'sess>) -> Self {
-        MetaItemListParserContext { inside_delimiters: tts.peekable(), dcx }.parse(span)
+    fn new_tts(tts: TokenStreamIter<'a>, span: Span, psess: &ParseSess, should_emit: ShouldEmit) -> Self {
+        MetaItemListParserContext { inside_delimiters: tts.peekable(), psess, should_emit }.parse(span)
     }
 
     /// Lets you pick and choose as what you want to parse each element in the list

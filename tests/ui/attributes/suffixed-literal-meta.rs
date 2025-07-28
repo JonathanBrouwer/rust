@@ -12,4 +12,5 @@
 #[rustc_dummy = 1i64] //~ ERROR: suffixed literals are not allowed in attributes
 #[rustc_dummy = 1.0f32] //~ ERROR: suffixed literals are not allowed in attributes
 #[rustc_dummy = 1.0f64] //~ ERROR: suffixed literals are not allowed in attributes
+#[rustc_dummy = 1.0f64] //~ ERROR: suffixed literals are not allowed in attributes
 fn main() {}
