@@ -55,7 +55,7 @@ LL |     #[deprecated]
    |     ^^^^^^^^^^^^^
    |
    = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
-   = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, inherent impl blocks, and crates
+   = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, and inherent impl blocks
 
 warning: `#[inline]` attribute cannot be used on macro calls
   --> $DIR/attr-on-mac-call.rs:24:5
@@ -136,7 +136,7 @@ LL |     #[deprecated]
    |     ^^^^^^^^^^^^^
    |
    = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
-   = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, inherent impl blocks, and crates
+   = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, and inherent impl blocks
 
 warning: `#[automatically_derived]` attribute cannot be used on macro calls
   --> $DIR/attr-on-mac-call.rs:51:5

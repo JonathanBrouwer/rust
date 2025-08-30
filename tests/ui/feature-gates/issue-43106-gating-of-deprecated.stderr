@@ -1,0 +1,16 @@
+error: `#[deprecated]` attribute cannot be used on crates
+  --> $DIR/issue-43106-gating-of-deprecated.rs:10:1
+   |
+LL | #![deprecated]
+   | ^^^^^^^^^^^^^^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = help: `#[deprecated]` can be applied to functions, data types, modules, unions, constants, statics, macro defs, type aliases, use statements, foreign statics, struct fields, traits, associated types, associated consts, enum variants, and inherent impl blocks
+note: the lint level is defined here
+  --> $DIR/issue-43106-gating-of-deprecated.rs:8:9
+   |
+LL | #![deny(unused_attributes)]
+   |         ^^^^^^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+

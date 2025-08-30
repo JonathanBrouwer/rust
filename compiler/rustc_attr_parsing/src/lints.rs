@@ -47,6 +47,7 @@ pub fn emit_attribute_lint<L: LintEmitter>(lint: &AttributeLint<L::Id>, lint_emi
                         Target::Statement,
                         Target::Arm,
                         Target::MacroCall,
+                        Target::Crate,
                     ]
                     .contains(target)
                 {

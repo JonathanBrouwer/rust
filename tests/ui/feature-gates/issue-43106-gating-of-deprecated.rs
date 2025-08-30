@@ -5,8 +5,10 @@
 //
 // (For non-crate-level cases, see issue-43106-gating-of-builtin-attrs.rs)
 
-//@ check-pass
+#![deny(unused_attributes)]
 
 #![deprecated]
+//~^ ERROR attribute cannot be used on crates
+//~| WARN previously accepted
 
 fn main() {}
