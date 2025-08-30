@@ -493,10 +493,6 @@ passes_remove_fields =
      *[other] fields
     }
 
-passes_repr_align_greater_than_target_max =
-    alignment must not be greater than `isize::MAX` bytes
-    .note = `isize::MAX` is {$size} for the current target
-
 passes_repr_align_should_be_align =
     `#[repr(align(...))]` is not supported on {$item}
     .help = use `#[rustc_align(...)]` instead

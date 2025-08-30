@@ -247,3 +247,7 @@ attr_parsing_raw_dylib_only_windows =
 
 attr_parsing_whole_archive_needs_static =
     linking modifier `whole-archive` is only compatible with `static` linking kind
+
+attr_parsing_repr_align_greater_than_target_max =
+    alignment must not be greater than `isize::MAX` bytes
+    .note = `isize::MAX` is {$size} for the current target

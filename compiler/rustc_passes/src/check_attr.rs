@@ -9,7 +9,7 @@ use std::cell::Cell;
 use std::collections::hash_map::Entry;
 use std::slice;
 
-use rustc_abi::{Align, ExternAbi, Size};
+use rustc_abi::{Align, ExternAbi};
 use rustc_ast::{AttrStyle, LitKind, MetaItemInner, MetaItemKind, ast};
 use rustc_attr_parsing::{AttributeParser, Late};
 use rustc_data_structures::fx::FxHashMap;
@@ -1730,14 +1730,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 "alignment greater than 2^29 should be errored on elsewhere",
             );
         } else {
-            // only do this check when <= 2^29 to prevent duplicate errors:
-            // alignment greater than 2^29 not supported
-            // alignment is too large for the current target
 
-            let max = Size::from_bits(self.tcx.sess.target.pointer_width).signed_int_max() as u64;
-            if align.bytes() > max {
-                self.dcx().emit_err(errors::InvalidReprAlignForTarget { span, size: max });
-            }
         }
     }
 

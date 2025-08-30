@@ -1,9 +1,9 @@
-use rustc_abi::Align;
+use rustc_abi::{Align, Size};
 use rustc_ast::{IntTy, LitIntType, LitKind, UintTy};
 use rustc_hir::attrs::{IntType, ReprAttr};
 
 use super::prelude::*;
-use crate::session_diagnostics::{self, IncorrectReprFormatGenericCause};
+use crate::session_diagnostics::{self, IncorrectReprFormatGenericCause, InvalidReprAlignForTarget};
 
 /// Parse #[repr(...)] forms.
 ///
@@ -103,7 +103,6 @@ fn parse_repr<S: Stage>(
     param: &MetaItemParser<'_>,
 ) -> Option<ReprAttr> {
     use ReprAttr::*;
-
     // FIXME(jdonszelmann): invert the parsing here to match on the word first and then the
     // structure.
     let (name, ident_span) = if let Some(ident) = param.path().word() {
@@ -232,7 +231,7 @@ fn parse_repr_align<S: Stage>(
         return None;
     };
 
-    match parse_alignment(&lit.kind) {
+    match parse_alignment(cx, &lit.kind) {
         Ok(literal) => Some(match align_kind {
             AlignKind::Packed => ReprAttr::ReprPacked(literal),
             AlignKind::Align => ReprAttr::ReprAlign(literal),
@@ -251,23 +250,33 @@ fn parse_repr_align<S: Stage>(
     }
 }
 
-fn parse_alignment(node: &LitKind) -> Result<Align, &'static str> {
-    if let LitKind::Int(literal, LitIntType::Unsuffixed) = node {
-        // `Align::from_bytes` accepts 0 as an input, check is_power_of_two() first
-        if literal.get().is_power_of_two() {
-            // Only possible error is larger than 2^29
-            literal
-                .get()
-                .try_into()
-                .ok()
-                .and_then(|v| Align::from_bytes(v).ok())
-                .ok_or("larger than 2^29")
-        } else {
-            Err("not a power of two")
-        }
-    } else {
-        Err("not an unsuffixed integer")
+fn parse_alignment<S: Stage>(cx: &AcceptContext<'_, '_, S>, node: &LitKind) -> Result<Align, &'static str> {
+    let LitKind::Int(literal, LitIntType::Unsuffixed) = node else {
+        return Err("not an unsuffixed integer");
+    };
+
+    // `Align::from_bytes` accepts 0 as an input, check is_power_of_two() first
+    if !literal.get().is_power_of_two() {
+        return Err("not a power of two")
     }
+
+    // Only possible error is larger than 2^29
+    let align = literal
+        .get()
+        .try_into()
+        .ok()
+        .and_then(|v| Align::from_bytes(v).ok())
+        .ok_or("larger than 2^29")?;
+
+    // only do this check when <= 2^29 to prevent duplicate errors:
+    // alignment greater than 2^29 not supported
+    // alignment is too large for the current target
+    let max = Size::from_bits(cx.sess.target.pointer_width).signed_int_max() as u64;
+    if align.bytes() > max {
+        cx.dcx().emit_err(InvalidReprAlignForTarget { span: cx.attr_span, size: max });
+    }
+
+    Ok(align)
 }
 
 /// Parse #[align(N)].
@@ -301,7 +310,7 @@ impl AlignParser {
                     return;
                 };
 
-                match parse_alignment(&lit.kind) {
+                match parse_alignment(cx, &lit.kind) {
                     Ok(literal) => self.0 = Ord::max(self.0, Some((literal, cx.attr_span))),
                     Err(message) => {
                         cx.emit_err(session_diagnostics::InvalidAlignmentValue {
