@@ -3,11 +3,13 @@ use std::borrow::Cow;
 use rustc_errors::{DiagArgValue, LintEmitter};
 use rustc_hir::Target;
 use rustc_hir::lints::{AttributeLint, AttributeLintKind};
+use rustc_session::lint::BuiltinLintDiag;
+use rustc_session::Session;
 use rustc_span::sym;
 
 use crate::session_diagnostics;
 
-pub fn emit_attribute_lint<L: LintEmitter>(lint: &AttributeLint<L::Id>, lint_emitter: L) {
+pub fn emit_attribute_lint<L: LintEmitter>(lint: &AttributeLint<L::Id>, lint_emitter: L, sess: &Session) {
     let AttributeLint { id, span, kind } = lint;
 
     match kind {
@@ -97,6 +99,24 @@ pub fn emit_attribute_lint<L: LintEmitter>(lint: &AttributeLint<L::Id>, lint_emi
                     target,
                 },
             )
+        }
+        AttributeLintKind::UnexpectedCfgName((name, name_span), value) => {
+            sess.psess.buffer_lint(
+                rustc_session::lint::builtin::UNEXPECTED_CFGS,
+                *span,
+                *id,
+                BuiltinLintDiag::UnexpectedCfgValue((*name, *name_span), *value)
+            );
+            // lint_emitter.emit_node_span_lint(
+            //     rustc_session::lint::builtin::UNEXPECTED_CFGS,
+            //     *id,
+            //     *span,
+            //
+            //     ,
+            // );
+        }
+        AttributeLintKind::UnexpectedCfgValue(name, value) => {
+
         }
     }
 }

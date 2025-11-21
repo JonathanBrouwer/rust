@@ -29,8 +29,6 @@ pub(crate) fn expand_cfg(
             let matches_cfg = attr::eval_config_entry(
                 cx.sess,
                 &cfg,
-                cx.current_expansion.lint_node_id,
-                ShouldEmit::ErrorsAndLints,
             )
             .as_bool();
 
