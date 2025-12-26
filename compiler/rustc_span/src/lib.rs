@@ -665,7 +665,7 @@ impl FileName {
 /// `SpanData` is public because `Span` uses a thread-local interner and can't be
 /// sent to other threads, but some pieces of performance infra run in a separate thread.
 /// Using `Span` is generally preferred.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 #[derive_where(PartialOrd, Ord)]
 pub struct SpanData {
     pub lo: BytePos,
@@ -1618,11 +1618,11 @@ impl fmt::Debug for Span {
     }
 }
 
-impl fmt::Debug for SpanData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.span(), f)
-    }
-}
+// impl fmt::Debug for SpanData {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         fmt::Debug::fmt(&self.span(), f)
+//     }
+// }
 
 /// Identifies an offset of a multi-byte character in a `SourceFile`.
 #[derive(Copy, Clone, Encodable, Decodable, Eq, PartialEq, Debug, HashStable_Generic)]
@@ -2866,17 +2866,6 @@ where
             return;
         }
 
-        if let Some(parent) = span.parent {
-            let def_span = ctx.def_span(parent).data_untracked();
-            if def_span.contains(span) {
-                // This span is enclosed in a definition: only hash the relative position.
-                Hash::hash(&TAG_RELATIVE_SPAN, hasher);
-                (span.lo - def_span.lo).to_u32().hash_stable(ctx, hasher);
-                (span.hi - def_span.lo).to_u32().hash_stable(ctx, hasher);
-                return;
-            }
-        }
-
         // If this is not an empty or invalid span, we want to hash the last
         // position that belongs to it, as opposed to hashing the first
         // position past it.
@@ -2885,6 +2874,20 @@ where
             Hash::hash(&TAG_INVALID_SPAN, hasher);
             return;
         };
+
+        if let Some(parent) = span.parent {
+            let def_span = ctx.def_span(parent).data_untracked();
+            let (def_file, ..) = ctx.span_data_to_lines_and_cols(&def_span).unwrap();
+
+            // eprintln!("HASHING {span:?} RELATIVE {def_span:?}");
+            if file == def_file {
+                // This span is enclosed in a definition: only hash the relative position.
+                Hash::hash(&TAG_RELATIVE_SPAN, hasher);
+                span.lo.to_u32().wrapping_sub(def_span.lo.to_u32()).hash_stable(ctx, hasher);
+                span.hi.to_u32().wrapping_sub(def_span.hi.to_u32()).hash_stable(ctx, hasher);
+                return;
+            }
+        }
 
         Hash::hash(&TAG_VALID_SPAN, hasher);
         Hash::hash(&file, hasher);

@@ -79,7 +79,7 @@ pub fn type_of_parameter_ref(p: &i32) {}
 #[rustc_clean(cfg = "cfail3")]
 #[rustc_clean(
     cfg = "cfail5",
-    except = "opt_hir_owner_nodes, optimized_mir, typeck, fn_sig"
+    except = "opt_hir_owner_nodes, optimized_mir, typeck, fn_sig, generics_of"
 )]
 #[rustc_clean(cfg = "cfail6")]
 pub fn type_of_parameter_ref(p: &mut i32) {}

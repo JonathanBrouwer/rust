@@ -3,6 +3,7 @@ use std::convert::identity;
 use rustc_ast as ast;
 use rustc_ast::token::DocFragmentKind;
 use rustc_ast::{AttrItemKind, AttrStyle, EarlyParsedAttribute, NodeId, Safety};
+use rustc_ast::attr::data_structures::CfgEntry;
 use rustc_errors::DiagCtxtHandle;
 use rustc_feature::{AttributeTemplate, Features};
 use rustc_hir::attrs::AttributeKind;
@@ -314,10 +315,11 @@ impl<'sess, S: Stage> AttributeParser<'sess, S> {
                         AttrItemKind::Parsed(parsed) => {
                             match parsed {
                                 EarlyParsedAttribute::CfgTrace(cfg) => {
-                                    let mut cfg = cfg.clone();
-                                    cfg.lower_spans(lower_span);
+                                    // let mut cfg = cfg.clone();
+                                    // cfg.lower_spans(lower_span);
+                                    // eprintln!("{:?}", attr_span.data());
                                     attributes.push(Attribute::Parsed(AttributeKind::CfgTrace(
-                                        [(cfg, attr_span)].into(),
+                                        [(CfgEntry::Bool(true, DUMMY_SP), attr_span)].into(),
                                     )));
                                 }
                                 EarlyParsedAttribute::CfgAttrTrace => {

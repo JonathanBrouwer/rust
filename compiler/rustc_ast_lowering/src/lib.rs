@@ -219,6 +219,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     }
 }
 
+#[derive(Debug)]
 struct SpanLowerer {
     is_incremental: bool,
     def_id: LocalDefId,
@@ -487,6 +488,16 @@ fn compute_hir_hash(
         .filter_map(|(def_id, info)| {
             let info = info.as_owner()?;
             let def_path_hash = tcx.hir_def_path_hash(def_id);
+
+            // tcx.with_stable_hashing_context(|mut hcx| {
+            //     if format!("{def_id:?}").contains("main") {
+            //         let mut stable_hasher = StableHasher::new();
+            //         info.hash_stable(&mut hcx, &mut stable_hasher);
+            //         let hash: Fingerprint = stable_hasher.finish();
+            //         // eprintln!("--- {:?} {hash}", def_id);
+            //     }
+            // });
+
             Some((def_path_hash, info))
         })
         .collect();
@@ -993,7 +1004,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 self.lower_attrs_vec(attrs, self.lower_span(target_span), id, target);
             lowered_attrs.extend(extra_hir_attributes.iter().cloned());
 
-            assert_eq!(id.owner, self.current_hir_id_owner);
             let ret = self.arena.alloc_from_iter(lowered_attrs);
 
             // this is possible if an item contained syntactical attribute,

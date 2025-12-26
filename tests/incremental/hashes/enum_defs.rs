@@ -595,7 +595,7 @@ enum EnumSwapUsageTypeParameters<A, B> {
 #[cfg(not(any(cfail1,cfail4)))]
 #[rustc_clean(cfg="cfail2", except="opt_hir_owner_nodes")]
 #[rustc_clean(cfg="cfail3")]
-#[rustc_clean(cfg="cfail5", except="opt_hir_owner_nodes")]
+#[rustc_clean(cfg="cfail5", except="opt_hir_owner_nodes,predicates_of")]
 #[rustc_clean(cfg="cfail6")]
 enum EnumSwapUsageTypeParameters<A, B> {
     Variant1 {
