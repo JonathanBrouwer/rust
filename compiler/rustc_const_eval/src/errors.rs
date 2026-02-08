@@ -393,16 +393,17 @@ impl Subdiagnostic for FrameNote {
         }
         let msg = diag.eagerly_translate(inline_fluent!(
             r#"{$times ->
-    [0] {const_eval_frame_note_inner}
-    *[other] [... {$times} additional calls {const_eval_frame_note_inner} ...]
-}
-
-const_eval_frame_note_inner = inside {$where_ ->
-    [closure] closure
-    [instance] `{$instance}`
-    *[other] {""}
-}
-"#
+                [0] inside {$where_ ->
+                    [closure] closure
+                    [instance] `{$instance}`
+                    *[other] {""}
+                }
+                *[other] [... {$times} additional calls inside {$where_ ->
+                    [closure] closure
+                    [instance] `{$instance}`
+                    *[other] {""}
+                } ...]
+            }"#
         ));
         diag.remove_arg("times");
         diag.remove_arg("where_");
