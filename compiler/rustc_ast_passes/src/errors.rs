@@ -3,7 +3,7 @@
 use rustc_abi::ExternAbi;
 use rustc_ast::ParamKindOrd;
 use rustc_errors::codes::*;
-use rustc_errors::{Applicability, Diag, EmissionGuarantee, Subdiagnostic, inline_fluent};
+use rustc_errors::{Applicability, Diag, EmissionGuarantee, Subdiagnostic, msg};
 use rustc_macros::{Diagnostic, LintDiagnostic, Subdiagnostic};
 use rustc_span::{Ident, Span, Symbol};
 
@@ -936,7 +936,7 @@ impl Subdiagnostic for StableFeature {
     fn add_to_diag<G: EmissionGuarantee>(self, diag: &mut Diag<'_, G>) {
         diag.arg("name", self.name);
         diag.arg("since", self.since);
-        diag.help(inline_fluent!("the feature `{$name}` has been stable since `{$since}` and no longer requires an attribute to enable"));
+        diag.help(msg!("the feature `{$name}` has been stable since `{$since}` and no longer requires an attribute to enable"));
     }
 }
 

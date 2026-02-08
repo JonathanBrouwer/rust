@@ -1,7 +1,7 @@
 //! Error reporting machinery for lifetime errors.
 
 use rustc_data_structures::fx::FxIndexSet;
-use rustc_errors::{Applicability, Diag, ErrorGuaranteed, MultiSpan, inline_fluent};
+use rustc_errors::{Applicability, Diag, ErrorGuaranteed, MultiSpan, msg};
 use rustc_hir as hir;
 use rustc_hir::GenericBound::Trait;
 use rustc_hir::QPath::Resolved;
@@ -298,7 +298,7 @@ impl<'infcx, 'tcx> MirBorrowckCtxt<'_, 'infcx, 'tcx> {
         if suggestions.len() > 0 {
             suggestions.dedup();
             diag.multipart_suggestion_verbose(
-                inline_fluent!("consider restricting the type parameter to the `'static` lifetime"),
+                msg!("consider restricting the type parameter to the `'static` lifetime"),
                 suggestions,
                 Applicability::MaybeIncorrect,
             );
@@ -968,18 +968,16 @@ impl<'infcx, 'tcx> MirBorrowckCtxt<'_, 'infcx, 'tcx> {
                 let mut multi_span: MultiSpan = vec![*span].into();
                 multi_span.push_span_label(
                     *span,
-                    inline_fluent!("this has an implicit `'static` lifetime requirement"),
+                    msg!("this has an implicit `'static` lifetime requirement"),
                 );
                 multi_span.push_span_label(
                     ident.span,
-                    inline_fluent!(
-                        "calling this method introduces the `impl`'s `'static` requirement"
-                    ),
+                    msg!("calling this method introduces the `impl`'s `'static` requirement"),
                 );
                 err.subdiagnostic(RequireStaticErr::UsedImpl { multi_span });
                 err.span_suggestion_verbose(
                     span.shrink_to_hi(),
-                    inline_fluent!("consider relaxing the implicit `'static` requirement"),
+                    msg!("consider relaxing the implicit `'static` requirement"),
                     " + '_",
                     Applicability::MaybeIncorrect,
                 );
@@ -1142,7 +1140,7 @@ impl<'infcx, 'tcx> MirBorrowckCtxt<'_, 'infcx, 'tcx> {
         if ocx.evaluate_obligations_error_on_ambiguity().is_empty() && count > 0 {
             diag.span_suggestion_verbose(
                 tcx.hir_body(*body).value.peel_blocks().span.shrink_to_lo(),
-                inline_fluent!("dereference the return value"),
+                msg!("dereference the return value"),
                 "*".repeat(count),
                 Applicability::MachineApplicable,
             );
@@ -1186,7 +1184,7 @@ impl<'infcx, 'tcx> MirBorrowckCtxt<'_, 'infcx, 'tcx> {
         if let Some(closure_span) = closure_span {
             diag.span_suggestion_verbose(
                 closure_span,
-                inline_fluent!("consider adding 'move' keyword before the nested closure"),
+                msg!("consider adding 'move' keyword before the nested closure"),
                 "move ",
                 Applicability::MaybeIncorrect,
             );
