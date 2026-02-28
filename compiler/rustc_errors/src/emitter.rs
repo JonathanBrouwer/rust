@@ -212,6 +212,7 @@ pub trait Emitter {
                 children.push(Subdiag {
                     level: Level::Note,
                     messages: vec![(DiagMessage::from(msg), Style::NoStyle)],
+                    args: Some(Default::default()),
                     span: MultiSpan::new(),
                 });
             }

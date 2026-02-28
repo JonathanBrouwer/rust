@@ -321,9 +321,15 @@ impl DiagInner {
         }
     }
 
-    pub(crate) fn sub(&mut self, level: Level, message: impl Into<DiagMessage>, span: MultiSpan) {
-        let sub = Subdiag { level, messages: vec![(message.into(), Style::NoStyle)], span };
-        self.children.push(sub);
+    pub(crate) fn sub(
+        &mut self,
+        level: Level,
+        message: impl Into<DiagMessage>,
+        span: MultiSpan,
+    ) -> &mut Subdiag {
+        let sub =
+            Subdiag { level, messages: vec![(message.into(), Style::NoStyle)], args: None, span };
+        self.children.push_mut(sub)
     }
 
     pub(crate) fn arg(&mut self, name: impl Into<DiagArgName>, arg: impl IntoDiagArg) {
@@ -339,7 +345,7 @@ impl DiagInner {
     }
 
     pub fn remove_arg(&mut self, name: &str) {
-        self.args.swap_remove(name);
+        self.args.remove(name);
     }
 
     pub fn store_args(&mut self) {
@@ -355,6 +361,7 @@ impl DiagInner {
         Subdiag {
             level: crate::Level::Note,
             messages: vec![(DiagMessage::Str(Cow::Owned(track)), Style::NoStyle)],
+            args: Some(Default::default()),
             span: MultiSpan::new(),
         }
     }
@@ -408,7 +415,26 @@ impl PartialEq for DiagInner {
 pub struct Subdiag {
     pub level: Level,
     pub messages: Vec<(DiagMessage, Style)>,
+    pub args: Option<DiagArgMap>,
     pub span: MultiSpan,
+}
+
+impl Subdiag {
+    pub fn arg(&mut self, name: impl Into<DiagArgName>, arg: impl IntoDiagArg) -> &mut Self {
+        let name = name.into();
+        let value = arg.into_diag_arg(&mut None);
+
+        let args = self.args.as_mut().unwrap();
+
+        // This assertion is to avoid subdiagnostics overwriting an existing diagnostic arg.
+        debug_assert!(
+            !args.contains_key(&name) || args.get(&name) == Some(&value),
+            "arg {} already exists",
+            name
+        );
+        args.insert(name, value);
+        self
+    }
 }
 
 /// Used for emitting structured error messages and other diagnostic information.
@@ -691,6 +717,10 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
         self
     } }
 
+    pub fn note_args(&mut self, msg: impl Into<DiagMessage>) -> &mut Subdiag {
+        self.sub_args(Level::Note, msg, MultiSpan::new())
+    }
+
     pub fn highlighted_note(&mut self, msg: Vec<StringPart>) -> &mut Self {
         self.sub_with_highlights(Level::Note, msg, MultiSpan::new());
         self
@@ -722,6 +752,14 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
         self.sub(Level::Note, msg, sp.into());
         self
     } }
+
+    pub fn span_note_args(
+        &mut self,
+        sp: impl Into<MultiSpan>,
+        msg: impl Into<DiagMessage>,
+    ) -> &mut Subdiag {
+        self.sub_args(Level::Note, msg, sp.into())
+    }
 
     /// Prints the span with a note above it.
     /// This is like [`Diag::note_once()`], but it gets its own span.
@@ -1220,11 +1258,22 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
         self.deref_mut().sub(level, message, span);
     }
 
+    pub fn sub_args(
+        &mut self,
+        level: Level,
+        message: impl Into<DiagMessage>,
+        span: MultiSpan,
+    ) -> &mut Subdiag {
+        let subdiag = self.deref_mut().sub(level, message, span);
+        subdiag.args = Some(Default::default());
+        subdiag
+    }
+
     /// Convenience function for internal use, clients should use one of the
     /// public methods above.
     fn sub_with_highlights(&mut self, level: Level, messages: Vec<StringPart>, span: MultiSpan) {
         let messages = messages.into_iter().map(|m| (m.content.into(), m.style)).collect();
-        let sub = Subdiag { level, messages, span };
+        let sub = Subdiag { level, messages, span, args: Some(Default::default()) };
         self.children.push(sub);
     }
 

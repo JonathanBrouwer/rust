@@ -1249,6 +1249,7 @@ struct Diagnostic {
 struct Subdiagnostic {
     level: Level,
     messages: Vec<(DiagMessage, Style)>,
+    args: Option<DiagArgMap>,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -2025,7 +2026,11 @@ impl Emitter for SharedEmitter {
                 children: diag
                     .children
                     .into_iter()
-                    .map(|child| Subdiagnostic { level: child.level, messages: child.messages })
+                    .map(|child| Subdiagnostic {
+                        level: child.level,
+                        messages: child.messages,
+                        args: child.args,
+                    })
                     .collect(),
                 args,
             })),
@@ -2069,6 +2074,7 @@ impl SharedEmitterMain {
                         .map(|sub| rustc_errors::Subdiag {
                             level: sub.level,
                             messages: sub.messages,
+                            args: sub.args,
                             span: MultiSpan::new(),
                         })
                         .collect();

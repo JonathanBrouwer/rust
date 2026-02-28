@@ -4,6 +4,7 @@
 // tidy-alphabetical-end
 
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 
 pub use fluent_bundle::types::FluentType;
 pub use fluent_bundle::{self, FluentArgs, FluentError, FluentValue};
@@ -13,7 +14,6 @@ pub use unic_langid::{LanguageIdentifier, langid};
 
 mod diagnostic_impls;
 pub use diagnostic_impls::DiagArgFromDisplay;
-use rustc_data_structures::fx::FxIndexMap;
 
 pub fn register_functions<R, M>(bundle: &mut fluent_bundle::bundle::FluentBundle<R, M>) {
     bundle
@@ -311,7 +311,7 @@ pub enum DiagArgValue {
     StrListSepByAnd(Vec<Cow<'static, str>>),
 }
 
-pub type DiagArgMap = FxIndexMap<DiagArgName, DiagArgValue>;
+pub type DiagArgMap = BTreeMap<DiagArgName, DiagArgValue>;
 
 /// Converts a value of a type into a `DiagArg` (typically a field of an `Diag` struct).
 /// Implemented as a custom trait rather than `From` so that it is implemented on the type being
