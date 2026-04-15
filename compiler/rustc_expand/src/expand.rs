@@ -1426,6 +1426,7 @@ impl InvocationCollectorNode for Box<ast::Item> {
                         ecx.current_expansion.lint_node_id,
                         &items,
                         ident.name,
+                        Target::ExternCrate,
                     );
                 }
 

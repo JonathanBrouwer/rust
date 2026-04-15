@@ -9,6 +9,7 @@ use rustc_ast::{self as ast, AttrVec, HasAttrs};
 use rustc_data_structures::stack::ensure_sufficient_stack;
 use rustc_errors::{BufferedEarlyLint, DecorateDiagCompat, LintBuffer};
 use rustc_feature::Features;
+use rustc_hir::Target;
 use rustc_middle::ty::{RegisteredTools, TyCtxt};
 use rustc_session::Session;
 use rustc_session::lint::LintPass;
@@ -68,12 +69,13 @@ impl<'ecx, 'tcx, T: EarlyLintPass> EarlyContextAndPass<'ecx, 'tcx, T> {
         id: ast::NodeId,
         attrs: &'_ [ast::Attribute],
         f: F,
+        target: Target,
         target_span: Span,
     ) where
         F: FnOnce(&mut Self),
     {
         debug!(?id);
-        let push = self.context.builder.push(attrs, id, target_span);
+        let push = self.context.builder.push(attrs, id, target_span, target);
 
         debug!("early context: enter_attrs({:?})", attrs);
         lint_callback!(self, check_attributes, attrs);
@@ -91,6 +93,11 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
         self.check_id(id);
     }
 
+    fn visit_crate(&mut self, krate: &'ast ast::Crate) {
+        ast_visit::walk_crate(self, krate);
+        self.visit_id(krate.id);
+    }
+
     fn visit_param(&mut self, param: &'ast ast::Param) {
         self.with_lint_attrs(
             param.id,
@@ -99,6 +106,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_param, param);
                 ast_visit::walk_param(cx, param);
             },
+            Target::Param,
             param.span,
         );
     }
@@ -112,8 +120,10 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 ast_visit::walk_item(cx, it);
                 lint_callback!(cx, check_item_post, it);
             },
+            Target::from_ast_item(it),
             it.span,
-        )
+        );
+        self.visit_id(it.id)
     }
 
     fn visit_foreign_item(&mut self, it: &'ast ast::ForeignItem) {
@@ -123,8 +133,10 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
             |cx| {
                 ast_visit::walk_item(cx, it);
             },
+            Target::from_foreign_item_kind(&it.kind),
             it.span,
-        )
+        );
+        self.visit_id(it.id)
     }
 
     fn visit_pat(&mut self, p: &'ast ast::Pat) {
@@ -140,6 +152,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
             |cx| {
                 ast_visit::walk_pat_field(cx, field);
             },
+            Target::PatField,
             field.span,
         );
     }
@@ -153,6 +166,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 ast_visit::walk_expr(cx, e);
                 lint_callback!(cx, check_expr_post, e);
             },
+            Target::Expression,
             e.span,
         )
     }
@@ -164,6 +178,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
             |cx| {
                 ast_visit::walk_expr_field(cx, f);
             },
+            Target::ExprField,
             f.span,
         )
     }
@@ -184,6 +199,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_stmt, s);
                 ast_visit::walk_stmt(cx, s);
             },
+            Target::Statement,
             s.span,
         );
     }
@@ -200,6 +216,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
             |cx| {
                 ast_visit::walk_field_def(cx, s);
             },
+            Target::Field,
             s.span,
         )
     }
@@ -212,6 +229,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_variant, v);
                 ast_visit::walk_variant(cx, v);
             },
+            Target::Variant,
             v.span,
         )
     }
@@ -233,6 +251,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_local, l);
                 ast_visit::walk_local(cx, l);
             },
+            Target::Expression,
             l.span,
         )
     }
@@ -250,6 +269,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_arm, a);
                 ast_visit::walk_arm(cx, a);
             },
+            Target::Arm,
             a.span,
         )
     }
@@ -260,6 +280,17 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
     }
 
     fn visit_generic_param(&mut self, param: &'ast ast::GenericParam) {
+        let (kind, has_default) = match &param.kind {
+            ast::GenericParamKind::Const { default, .. } => {
+                (rustc_hir::target::GenericParamKind::Const, default.is_some())
+            }
+            ast::GenericParamKind::Type { default, .. } => {
+                (rustc_hir::target::GenericParamKind::Type, default.is_some())
+            }
+            ast::GenericParamKind::Lifetime => {
+                (rustc_hir::target::GenericParamKind::Lifetime, false)
+            }
+        };
         self.with_lint_attrs(
             param.id,
             &param.attrs,
@@ -267,6 +298,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                 lint_callback!(cx, check_generic_param, param);
                 ast_visit::walk_generic_param(cx, param);
             },
+            Target::GenericParam { kind, has_default },
             param.span(),
         );
     }
@@ -310,6 +342,7 @@ impl<'ast, 'ecx, 'tcx, T: EarlyLintPass> ast_visit::Visitor<'ast>
                     }
                 }
             },
+            Target::from_assoc_item_kind(&item.kind, ctxt),
             item.span,
         );
     }
@@ -366,6 +399,7 @@ crate::early_lint_methods!(impl_early_lint_pass, []);
 pub trait EarlyCheckNode<'a>: Copy {
     fn id(self) -> ast::NodeId;
     fn attrs(self) -> &'a [ast::Attribute];
+    fn target(self) -> Target;
     fn check<'ecx, 'tcx, T: EarlyLintPass>(self, cx: &mut EarlyContextAndPass<'ecx, 'tcx, T>);
 }
 
@@ -376,10 +410,15 @@ impl<'a> EarlyCheckNode<'a> for (&'a ast::Crate, &'a [ast::Attribute]) {
     fn attrs(self) -> &'a [ast::Attribute] {
         self.1
     }
+    fn target(self) -> Target {
+        Target::Crate
+    }
     fn check<'ecx, 'tcx, T: EarlyLintPass>(self, cx: &mut EarlyContextAndPass<'ecx, 'tcx, T>) {
         lint_callback!(cx, check_crate, self.0);
         ast_visit::walk_crate(cx, self.0);
         lint_callback!(cx, check_crate_post, self.0);
+        // FIXME(this should be removed at some point, when we find why things lower down the tree uses dummy id)
+        cx.check_id(rustc_ast::DUMMY_NODE_ID);
     }
 }
 
@@ -389,6 +428,10 @@ impl<'a> EarlyCheckNode<'a> for (ast::NodeId, &'a [Box<ast::Item>]) {
     }
     fn attrs(self) -> &'a [ast::Attribute] {
         &[]
+    }
+    // This is never read
+    fn target(self) -> Target {
+        Target::Fn
     }
     fn check<'ecx, 'tcx, T: EarlyLintPass>(self, cx: &mut EarlyContextAndPass<'ecx, 'tcx, T>) {
         walk_list!(cx, visit_item, self.1);
@@ -405,6 +448,7 @@ pub fn check_ast_node<'a>(
     lint_buffer: Option<LintBuffer>,
     builtin_lints: impl EarlyLintPass + 'static,
     check_node: impl EarlyCheckNode<'a>,
+    target: Target,
 ) {
     let context = EarlyContext::new(
         sess,
@@ -421,12 +465,12 @@ pub fn check_ast_node<'a>(
     let passes =
         if pre_expansion { &lint_store.pre_expansion_passes } else { &lint_store.early_passes };
     if passes.is_empty() {
-        check_ast_node_inner(sess, tcx, check_node, context, builtin_lints);
+        check_ast_node_inner(sess, tcx, check_node, context, builtin_lints, target);
     } else {
         let mut passes: Vec<_> = passes.iter().map(|mk_pass| (mk_pass)()).collect();
         passes.push(Box::new(builtin_lints));
         let pass = RuntimeCombinedEarlyLintPass { passes: &mut passes[..] };
-        check_ast_node_inner(sess, tcx, check_node, context, pass);
+        check_ast_node_inner(sess, tcx, check_node, context, pass, target);
     }
 }
 
@@ -436,10 +480,18 @@ fn check_ast_node_inner<'a, T: EarlyLintPass>(
     check_node: impl EarlyCheckNode<'a>,
     context: EarlyContext<'_>,
     pass: T,
+    target: Target,
 ) {
+    check_node.id();
     let mut cx = EarlyContextAndPass { context, tcx, pass };
 
-    cx.with_lint_attrs(check_node.id(), check_node.attrs(), |cx| check_node.check(cx), DUMMY_SP);
+    cx.with_lint_attrs(
+        check_node.id(),
+        check_node.attrs(),
+        |cx| check_node.check(cx),
+        target,
+        DUMMY_SP,
+    );
 
     // All of the buffered lints should have been emitted at this point.
     // If not, that means that we somehow buffered a lint for a node id

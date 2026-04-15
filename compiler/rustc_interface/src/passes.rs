@@ -92,6 +92,7 @@ fn pre_expansion_lint<'a>(
     registered_tools: &RegisteredTools,
     check_node: impl EarlyCheckNode<'a>,
     node_name: Symbol,
+    target: Target,
 ) {
     sess.prof.generic_activity_with_arg("pre_AST_expansion_lint_checks", node_name.as_str()).run(
         || {
@@ -105,6 +106,7 @@ fn pre_expansion_lint<'a>(
                 None,
                 rustc_lint::BuiltinCombinedPreExpansionLintPass::new(),
                 check_node,
+                target,
             );
         },
     );
@@ -122,8 +124,17 @@ impl LintStoreExpand for LintStoreExpandImpl<'_> {
         node_id: ast::NodeId,
         items: &[Box<ast::Item>],
         name: Symbol,
+        target: Target,
     ) {
-        pre_expansion_lint(sess, features, self.0, registered_tools, (node_id, items), name);
+        pre_expansion_lint(
+            sess,
+            features,
+            self.0,
+            registered_tools,
+            (node_id, items),
+            name,
+            target,
+        );
     }
 }
 
@@ -150,6 +161,7 @@ fn configure_and_expand(
         tcx.registered_tools(()),
         lint_check_node,
         crate_name,
+        Target::Crate,
     );
     rustc_builtin_macros::register_builtin_macros(resolver);
 
@@ -477,6 +489,7 @@ fn early_lint_checks(tcx: TyCtxt<'_>, (): ()) {
         Some(lint_buffer),
         rustc_lint::BuiltinCombinedEarlyLintPass::new(),
         (&**krate, &*krate.attrs),
+        Target::Crate,
     )
 }
 

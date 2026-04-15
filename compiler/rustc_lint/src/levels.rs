@@ -1,5 +1,5 @@
 use rustc_ast as ast;
-use rustc_ast::{DUMMY_NODE_ID, NodeId};
+use rustc_ast::NodeId;
 use rustc_attr_parsing::AttributeParser;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_data_structures::unord::UnordSet;
@@ -403,7 +403,7 @@ impl<'s> LintLevelsBuilder<'s, TopDown> {
             ALLOW_LISTED_ATTRS,
             Target::Crate,
             DUMMY_SP,
-            DUMMY_NODE_ID,
+            rustc_ast::CRATE_NODE_ID,
             Some(features),
             rustc_attr_parsing::ShouldEmit::Nothing,
             registered_tools,
@@ -441,6 +441,7 @@ impl<'s> LintLevelsBuilder<'s, TopDown> {
         attrs: &[ast::Attribute],
         node_id: NodeId,
         target_span: Span,
+        target: Target,
     ) -> BuilderPush {
         let prev = self.provider.cur;
         self.provider.cur =
@@ -450,7 +451,7 @@ impl<'s> LintLevelsBuilder<'s, TopDown> {
                 self.sess,
                 attrs,
                 ALLOW_LISTED_ATTRS,
-                Target::Fn,
+                target,
                 target_span,
                 node_id,
                 Some(self.features),

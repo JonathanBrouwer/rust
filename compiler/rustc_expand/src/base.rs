@@ -1191,6 +1191,7 @@ pub trait LintStoreExpand {
         node_id: NodeId,
         items: &[Box<Item>],
         name: Symbol,
+        target: rustc_hir::Target,
     );
 }
 
