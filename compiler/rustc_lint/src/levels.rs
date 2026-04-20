@@ -454,7 +454,9 @@ impl<'s> LintLevelsBuilder<'s, TopDown> {
                 target_span,
                 node_id,
                 Some(self.features),
-                rustc_attr_parsing::ShouldEmit::Nothing,
+                rustc_attr_parsing::ShouldEmit::ErrorsAndLints {
+                    recovery: rustc_attr_parsing::Recovery::Allowed,
+                },
                 self.registered_tools,
             );
 

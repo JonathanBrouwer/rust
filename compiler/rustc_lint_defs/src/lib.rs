@@ -681,29 +681,11 @@ pub enum AttributeLintKind {
     IgnoredDiagnosticOption { option_name: Symbol, first_span: Span, later_span: Span },
     MissingOptionsForDiagnosticAttribute { attribute: &'static str, options: &'static str },
     NonMetaItemDiagnosticAttribute,
-    RenamedLint {
-        name: Symbol,
-        replace: Symbol,
-        suggestion: Span,
-    },
-    DeprecatedLintName {
-        name: Symbol,
-        suggestion: Span,
-        replace: Symbol,
-    },
-    RemovedLint {
-        name: Symbol,
-        reason: String,
-    },
-    UnknownLint {
-        name: Symbol,
-        span: Span,
-        suggestion: Option<(Symbol, bool)>,
-    },
-    IgnoredUnlessCrateSpecified {
-        level: Symbol,
-        name: Symbol,
-    },
+    RenamedLint { name: Symbol, replace: Symbol, suggestion: Span },
+    DeprecatedLintName { name: Symbol, suggestion: Span, replace: Symbol },
+    RemovedLint { name: Symbol, reason: String },
+    UnknownLint { name: Symbol, span: Span, suggestion: Option<(Symbol, bool)> },
+    IgnoredUnlessCrateSpecified { level: Symbol, name: Symbol },
 }
 
 #[derive(Debug, Clone, HashStable_Generic)]
