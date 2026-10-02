@@ -178,7 +178,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
                 this.with_move_expr_bindings(Some(MoveExprState::default()), |this| {
                     // FIXME(contracts): Support contracts on closures?
-                    let body_id = this.lower_fn_body(decl, None, |this| {
+                    let body_id = this.lower_fn_body(None, |this| {
                         this.coroutine_kind = coroutine_kind;
                         let e = this.lower_expr_mut(body);
                         coroutine_kind = this.coroutine_kind;
@@ -301,15 +301,17 @@ impl<'hir> LoweringContext<'_, 'hir> {
             }
         };
 
-        let body = self.with_new_scopes(fn_decl_span, |this| {
-            let inner_decl =
-                FnDecl { inputs: decl.inputs.clone(), output: FnRetTy::Default(fn_decl_span) };
+        // We need to lower the declaration outside the new scope, because we
+        // have to conserve the state of being inside a loop condition for the
+        // closure argument types.
+        let fn_decl = self.lower_fn_decl(&decl, closure_id, FnDeclKind::Closure, None);
 
+        let body = self.with_new_scopes(fn_decl_span, |this| {
             // Transform `async |x: u8| -> X { ... }` into
             // `|x: u8| || -> X { ... }`.
             let body_id = this.lower_body(|this| {
-                let (parameters, expr) = this.lower_coroutine_body_with_moved_arguments(
-                    &inner_decl,
+                let expr = this.lower_coroutine_body_with_moved_arguments(
+                    fn_decl.inputs,
                     |this| this.with_new_scopes(fn_decl_span, |this| this.lower_expr_mut(body)),
                     fn_decl_span,
                     body.span,
@@ -319,16 +321,12 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
                 this.maybe_forward_track_caller(closure_hir_id, expr.hir_id);
 
-                (parameters, expr)
+                expr
             });
             body_id
         });
 
         let bound_generic_params = self.lower_lifetime_binder(closure_id, generic_params);
-        // We need to lower the declaration outside the new scope, because we
-        // have to conserve the state of being inside a loop condition for the
-        // closure argument types.
-        let fn_decl = self.lower_fn_decl(&decl, closure_id, FnDeclKind::Closure, None);
 
         if let Const::Yes(span) = constness {
             self.dcx().span_err(span, "const coroutines are not supported");

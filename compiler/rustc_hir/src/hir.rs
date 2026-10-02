@@ -1956,7 +1956,6 @@ pub struct BodyId {
 /// map using `body_owner_def_id()`.
 #[derive(Debug, Clone, Copy, StableHash)]
 pub struct Body<'hir> {
-    pub params: &'hir [Param<'hir>],
     pub value: &'hir Expr<'hir>,
 }
 
@@ -3732,6 +3731,7 @@ pub struct Param<'hir> {
     #[stable_hash(ignore)]
     pub hir_id: HirId,
     pub pat: &'hir Pat<'hir>,
+    pub ty: &'hir Ty<'hir>,
     pub ty_span: Span,
     pub span: Span,
 }
@@ -3920,7 +3920,7 @@ pub struct FnDecl<'hir> {
     /// The types of the function's parameters.
     ///
     /// Additional argument data is stored in the function's [body](Body::params).
-    pub inputs: &'hir [Ty<'hir>],
+    pub inputs: &'hir [Param<'hir>],
     pub output: FnRetTy<'hir>,
     /// The packed function declaration attributes.
     pub fn_decl_kind: FnDeclFlags,
@@ -5274,7 +5274,7 @@ mod size_asserts {
     use super::*;
     // tidy-alphabetical-start
     static_assert_size!(Block<'_>, 48);
-    static_assert_size!(Body<'_>, 24);
+    static_assert_size!(Body<'_>, 8);
     static_assert_size!(Expr<'_>, 64);
     static_assert_size!(ExprKind<'_>, 48);
     static_assert_size!(FnDecl<'_>, 40);
@@ -5289,7 +5289,7 @@ mod size_asserts {
     static_assert_size!(Item<'_>, 88);
     static_assert_size!(ItemKind<'_>, 64);
     static_assert_size!(LetStmt<'_>, 64);
-    static_assert_size!(Param<'_>, 32);
+    static_assert_size!(Param<'_>, 40);
     static_assert_size!(Pat<'_>, 80);
     static_assert_size!(PatKind<'_>, 56);
     static_assert_size!(Path<'_>, 40);

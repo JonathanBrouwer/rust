@@ -102,6 +102,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         DelegationResults { body_id, sig, ident, generics }
     }
 
+    #[expect(unused)] //TODO
     fn lower_delegation_decl(
         &mut self,
         res: &DelegationResolution,
@@ -115,14 +116,15 @@ impl<'hir> LoweringContext<'_, 'hir> {
         // The last parameter in C variadic functions is skipped in the signature,
         // like during regular lowering.
         let decl_param_count = param_count - c_variadic as usize;
-        let inputs = self.arena.alloc_from_iter((0..decl_param_count).map(|arg| hir::Ty {
-            hir_id: self.next_id(),
-            kind: hir::TyKind::InferDelegation(hir::InferDelegation::Sig(
-                sig_id,
-                hir::InferDelegationSig::Input(arg),
-            )),
-            span,
-        }));
+        let inputs = todo!();
+        // let inputs = self.arena.alloc_from_iter((0..decl_param_count).map(|arg| hir::Ty {
+        //     hir_id: self.next_id(),
+        //     kind: hir::TyKind::InferDelegation(hir::InferDelegation::Sig(
+        //         sig_id,
+        //         hir::InferDelegationSig::Input(arg),
+        //     )),
+        //     span,
+        // }));
 
         let output = self.arena.alloc(hir::Ty {
             hir_id: self.next_id(),
@@ -213,7 +215,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             default_binding_modes: false,
         });
 
-        (hir::Param { hir_id: self.next_id(), pat, ty_span: span, span }, pat_node_id)
+        (hir::Param { hir_id: self.next_id(), pat, ty_span: span, span, ty: todo!() }, pat_node_id)
     }
 
     fn generate_arg(
@@ -310,7 +312,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
             call_expr_id = hir_id;
 
-            (this.arena.alloc_from_iter(parameters), final_expr)
+            final_expr
         });
 
         debug_assert_ne!(call_expr_id, HirId::INVALID);
@@ -600,7 +602,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 targeted_by_break: false,
             });
 
-            (&[], this.mk_expr(hir::ExprKind::Block(block, None), span))
+            this.mk_expr(hir::ExprKind::Block(block, None), span)
         });
 
         let generics = hir::Generics::empty();

@@ -851,7 +851,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let bound_vars = self.tcx.late_bound_vars(hir_id);
 
         // First, convert the types that the user supplied (if any).
-        let supplied_arguments = decl.inputs.iter().map(|a| lowerer.lower_ty(a));
+        let supplied_arguments = decl.inputs.iter().map(|p| lowerer.lower_ty(p.ty));
         let supplied_return = match decl.output {
             hir::FnRetTy::Return(ref output) => lowerer.lower_ty(output),
             hir::FnRetTy::DefaultReturn(_) => match closure_kind {
@@ -1047,9 +1047,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let lowerer = self.lowerer();
         let err_ty = Ty::new_error(self.tcx, guar);
 
-        let supplied_arguments = decl.inputs.iter().map(|a| {
+        let supplied_arguments = decl.inputs.iter().map(|p| {
             // Convert the types that the user supplied (if any), but ignore them.
-            lowerer.lower_ty(a);
+            lowerer.lower_ty(p.ty);
             err_ty
         });
 

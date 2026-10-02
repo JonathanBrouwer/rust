@@ -247,7 +247,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         kind: hir::ExprKind::Block(self.lower_block(block, false), None),
                         span: self.lower_span(*span),
                     };
-                    self.record_body(&[], body)
+                    self.record_body(body)
                 }),
             ),
             ItemKind::Fn(Fn {
@@ -260,22 +260,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 ..
             }) => {
                 self.with_new_scopes(*fn_sig_span, |this| {
-                    // Note: we don't need to change the return type from `T` to
-                    // `impl Future<Output = T>` here because lower_body
-                    // only cares about the input argument patterns in the function
-                    // declaration (decl), not the return types.
                     let coroutine_marker = header.coroutine_marker;
-                    let body_id = this.lower_maybe_coroutine_body(
-                        *fn_sig_span,
-                        span,
-                        hir_id,
-                        decl,
-                        coroutine_marker,
-                        body.as_deref(),
-                        attrs,
-                        contract.as_deref(),
-                    );
-
                     let itctx = ImplTraitContext::Universal;
                     let (generics, decl) = this.lower_generics(generics, itctx, |this| {
                         this.lower_fn_decl(decl, id, FnDeclKind::Fn, coroutine_marker)
@@ -285,6 +270,22 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         header: this.lower_fn_header(*header, hir::Safety::Safe, attrs),
                         span: this.lower_span(*fn_sig_span),
                     };
+
+                    // Note: we don't need to change the return type from `T` to
+                    // `impl Future<Output = T>` here because lower_body
+                    // only cares about the input argument patterns in the function
+                    // declaration (decl), not the return types.
+                    let body_id = this.lower_maybe_coroutine_body(
+                        *fn_sig_span,
+                        span,
+                        hir_id,
+                        decl.inputs,
+                        coroutine_marker,
+                        body.as_deref(),
+                        attrs,
+                        contract.as_deref(),
+                    );
+
                     this.lower_define_opaque(hir_id, define_opaque);
                     let ident = this.lower_ident(*ident);
                     hir::ItemKind::Fn {
@@ -314,7 +315,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             ItemKind::GlobalAsm(asm) => {
                 let asm = self.lower_inline_asm(span, asm);
                 let fake_body =
-                    self.lower_body(|this| (&[], this.expr(span, hir::ExprKind::InlineAsm(asm))));
+                    self.lower_body(|this| this.expr(span, hir::ExprKind::InlineAsm(asm)));
                 hir::ItemKind::GlobalAsm { asm, fake_body }
             }
             ItemKind::TyAlias(TyAlias { ident, generics, after_where_clause, ty, .. }) => {
@@ -864,17 +865,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 define_opaque,
                 ..
             }) => {
-                let body_id = self.lower_maybe_coroutine_body(
-                    sig.span,
-                    i.span,
-                    hir_id,
-                    &sig.decl,
-                    sig.header.coroutine_marker,
-                    Some(body),
-                    attrs,
-                    contract.as_deref(),
-                );
-                let (generics, sig) = self.lower_method_sig(
+                let (generics, hir_sig) = self.lower_method_sig(
                     generics,
                     sig,
                     i.id,
@@ -882,11 +873,21 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     sig.header.coroutine_marker,
                     attrs,
                 );
+                let body_id = self.lower_maybe_coroutine_body(
+                    hir_sig.span,
+                    i.span,
+                    hir_id,
+                    &hir_sig.decl.inputs,
+                    sig.header.coroutine_marker,
+                    Some(body),
+                    attrs,
+                    contract.as_deref(),
+                );
                 self.lower_define_opaque(hir_id, &define_opaque);
                 (
                     *ident,
                     generics,
-                    hir::TraitItemKind::Fn(sig, hir::TraitFn::Provided(body_id)),
+                    hir::TraitItemKind::Fn(hir_sig, hir::TraitFn::Provided(body_id)),
                     true,
                 )
             }
@@ -1074,17 +1075,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             AssocItemKind::Fn(Fn {
                 sig, ident, generics, body, contract, define_opaque, ..
             }) => {
-                let body_id = self.lower_maybe_coroutine_body(
-                    sig.span,
-                    i.span,
-                    hir_id,
-                    &sig.decl,
-                    sig.header.coroutine_marker,
-                    body.as_deref(),
-                    attrs,
-                    contract.as_deref(),
-                );
-                let (generics, sig) = self.lower_method_sig(
+                let (generics, hir_sig) = self.lower_method_sig(
                     generics,
                     sig,
                     i.id,
@@ -1092,9 +1083,19 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     sig.header.coroutine_marker,
                     attrs,
                 );
+                let body_id = self.lower_maybe_coroutine_body(
+                    hir_sig.span,
+                    i.span,
+                    hir_id,
+                    &hir_sig.decl.inputs,
+                    sig.header.coroutine_marker,
+                    body.as_deref(),
+                    attrs,
+                    contract.as_deref(),
+                );
                 self.lower_define_opaque(hir_id, &define_opaque);
 
-                (*ident, (generics, hir::ImplItemKind::Fn(sig, body_id)))
+                (*ident, (generics, hir::ImplItemKind::Fn(hir_sig, body_id)))
             }
             AssocItemKind::Type(TyAlias { ident, generics, after_where_clause, ty, .. }) => {
                 let mut generics = generics.clone();
@@ -1189,12 +1190,8 @@ impl<'hir> LoweringContext<'_, 'hir> {
         }
     }
 
-    fn record_body(
-        &mut self,
-        params: &'hir [hir::Param<'hir>],
-        value: hir::Expr<'hir>,
-    ) -> hir::BodyId {
-        let body = hir::Body { params, value: self.arena.alloc(value) };
+    fn record_body(&mut self, value: hir::Expr<'hir>) -> hir::BodyId {
+        let body = hir::Body { value: self.arena.alloc(value) };
         let id = body.id();
         assert_eq!(id.hir_id.owner, self.curr_owner.owner_id());
         self.curr_owner.bodies.push((id.hir_id.local_id, self.arena.alloc(body)));
@@ -1203,23 +1200,29 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
     pub(super) fn lower_body(
         &mut self,
-        f: impl FnOnce(&mut Self) -> (&'hir [hir::Param<'hir>], hir::Expr<'hir>),
+        f: impl FnOnce(&mut Self) -> hir::Expr<'hir>,
     ) -> hir::BodyId {
         let prev_coroutine_kind = self.coroutine_kind.take();
         let task_context = self.task_context.take();
-        let (parameters, result) = f(self);
-        let body_id = self.record_body(parameters, result);
+        let result = f(self);
+        let body_id = self.record_body(result);
         self.task_context = task_context;
         self.coroutine_kind = prev_coroutine_kind;
         body_id
     }
 
-    fn lower_param(&mut self, param: &Param) -> hir::Param<'hir> {
+    pub(super) fn lower_param(
+        &mut self,
+        param: &Param,
+        itctx: ImplTraitContext,
+    ) -> hir::Param<'hir> {
         let hir_id = self.lower_node_id(param.id);
         self.lower_attrs(hir_id, &param.attrs, param.span, Target::Param);
+        let ty = self.arena.alloc(self.lower_ty(&param.ty, itctx));
         hir::Param {
             hir_id,
             pat: self.lower_pat(&param.pat),
+            ty,
             ty_span: self.lower_span(param.ty.span),
             span: self.lower_span(param.span),
         }
@@ -1227,41 +1230,27 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
     pub(super) fn lower_fn_body(
         &mut self,
-        decl: &FnDecl,
         contract: Option<&FnContract>,
         body: impl FnOnce(&mut Self) -> hir::Expr<'hir>,
     ) -> hir::BodyId {
         self.lower_body(|this| {
-            let params =
-                this.arena.alloc_from_iter(decl.inputs.iter().map(|x| this.lower_param(x)));
-
             // Optionally lower the fn contract
             if let Some(contract) = contract {
-                (params, this.lower_contract(body, contract))
+                this.lower_contract(body, contract)
             } else {
-                (params, body(this))
+                body(this)
             }
         })
     }
 
-    fn lower_fn_body_block(
-        &mut self,
-        decl: &FnDecl,
-        body: &Block,
-        contract: Option<&FnContract>,
-    ) -> hir::BodyId {
-        self.lower_fn_body(decl, contract, |this| this.lower_block_expr(body))
+    fn lower_fn_body_block(&mut self, body: &Block, contract: Option<&FnContract>) -> hir::BodyId {
+        self.lower_fn_body(contract, |this| this.lower_block_expr(body))
     }
 
     pub(super) fn lower_const_body(&mut self, span: Span, expr: Option<&Expr>) -> hir::BodyId {
-        self.lower_body(|this| {
-            (
-                &[],
-                match expr {
-                    Some(expr) => this.lower_expr_mut(expr),
-                    None => this.expr_err(span, this.dcx().span_delayed_bug(span, "no block")),
-                },
-            )
+        self.lower_body(|this| match expr {
+            Some(expr) => this.lower_expr_mut(expr),
+            None => this.expr_err(span, this.dcx().span_delayed_bug(span, "no block")),
         })
     }
 
@@ -1272,7 +1261,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         fn_decl_span: Span,
         span: Span,
         fn_id: hir::HirId,
-        decl: &FnDecl,
+        inputs: &'hir [hir::Param<'hir>],
         coroutine_marker: Option<CoroutineMarker>,
         body: Option<&Block>,
         attrs: &'hir [rustc_attr_ir::Attribute],
@@ -1282,7 +1271,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             // Functions without a body are an error, except if this is an intrinsic. For those we
             // create a fake body so that the entire rest of the compiler doesn't have to deal with
             // this as a special case.
-            return self.lower_fn_body(decl, contract, |this| {
+            return self.lower_fn_body(contract, |this| {
                 if find_attr!(attrs, RustcIntrinsic) || this.tcx.is_sdylib_interface_build() {
                     let span = this.lower_span(span);
                     let empty_block = hir::Block {
@@ -1307,12 +1296,12 @@ impl<'hir> LoweringContext<'_, 'hir> {
         };
         let Some(coroutine_marker) = coroutine_marker else {
             // Typical case: not a coroutine.
-            return self.lower_fn_body_block(decl, body, contract);
+            return self.lower_fn_body_block(body, contract);
         };
         // FIXME(contracts): Support contracts on async fn.
         self.lower_body(|this| {
-            let (parameters, expr) = this.lower_coroutine_body_with_moved_arguments(
-                decl,
+            let expr = this.lower_coroutine_body_with_moved_arguments(
+                inputs,
                 |this| this.lower_block_expr(body),
                 fn_decl_span,
                 body.span,
@@ -1324,7 +1313,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             let hir_id = expr.hir_id;
             this.maybe_forward_track_caller(fn_id, hir_id);
 
-            (parameters, expr)
+            expr
         })
     }
 
@@ -1334,14 +1323,13 @@ impl<'hir> LoweringContext<'_, 'hir> {
     /// drop order are stable.
     pub(crate) fn lower_coroutine_body_with_moved_arguments(
         &mut self,
-        decl: &FnDecl,
+        inputs: &'hir [hir::Param<'hir>],
         lower_body: impl FnOnce(&mut LoweringContext<'_, 'hir>) -> hir::Expr<'hir>,
         fn_decl_span: Span,
         body_span: Span,
         coroutine_marker: CoroutineMarker,
         coroutine_source: hir::CoroutineSource,
-    ) -> (&'hir [hir::Param<'hir>], hir::Expr<'hir>) {
-        let mut parameters: Vec<hir::Param<'_>> = Vec::new();
+    ) -> hir::Expr<'hir> {
         let mut statements: Vec<hir::Stmt<'_>> = Vec::new();
 
         // Async function parameters are lowered into the closure body so that they are
@@ -1376,8 +1364,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         // let-bound variables and temporaries created in the body
         // (and its tail expression!) before we drop the
         // parameters (c.f. rust-lang/rust#64512).
-        for (index, parameter) in decl.inputs.iter().enumerate() {
-            let parameter = self.lower_param(parameter);
+        for (index, parameter) in inputs.iter().enumerate() {
             let span = parameter.pat.span;
 
             // Check if this is a binding pattern, if so, we can optimize and avoid adding a
@@ -1406,19 +1393,12 @@ impl<'hir> LoweringContext<'_, 'hir> {
             // If this is the simple case, this parameter will end up being the same as the
             // original parameter, but with a different pattern id.
             let stmt_attrs = self.curr_owner.attrs.get(&parameter.hir_id.local_id).copied();
-            let (new_parameter_pat, new_parameter_id) = self.pat_ident(desugared_span, ident);
-            let new_parameter = hir::Param {
-                hir_id: parameter.hir_id,
-                pat: new_parameter_pat,
-                ty_span: self.lower_span(parameter.ty_span),
-                span: self.lower_span(parameter.span),
-            };
 
             if is_simple_parameter {
                 // If this is the simple case, then we only insert one statement that is
                 // `let <pat> = <pat>;`. We re-use the original argument's pattern so that
                 // `HirId`s are densely assigned.
-                let expr = self.expr_ident(desugared_span, ident, new_parameter_id);
+                let expr = self.expr_ident(desugared_span, ident, parameter.pat.hir_id);
                 let stmt = self.stmt_let_pat(
                     stmt_attrs,
                     desugared_span,
@@ -1445,7 +1425,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 // statement.
                 let (move_pat, move_id) =
                     self.pat_ident_binding_mode(desugared_span, ident, hir::BindingMode::MUT);
-                let move_expr = self.expr_ident(desugared_span, ident, new_parameter_id);
+                let move_expr = self.expr_ident(desugared_span, ident, parameter.pat.hir_id);
                 let move_stmt = self.stmt_let_pat(
                     None,
                     desugared_span,
@@ -1468,8 +1448,6 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 statements.push(move_stmt);
                 statements.push(pattern_stmt);
             };
-
-            parameters.push(new_parameter);
         }
 
         let mkbody = |this: &mut LoweringContext<'_, 'hir>| {
@@ -1520,13 +1498,11 @@ impl<'hir> LoweringContext<'_, 'hir> {
             mkbody,
         );
 
-        let expr = hir::Expr {
+        hir::Expr {
             hir_id: self.lower_node_id(closure_id),
             kind: coroutine_expr,
             span: self.lower_span(body_span),
-        };
-
-        (self.arena.alloc_from_iter(parameters), expr)
+        }
     }
 
     fn lower_method_sig(

@@ -47,7 +47,7 @@ pub enum Nested {
     ImplItem(hir::ImplItemId),
     ForeignItem(hir::ForeignItemId),
     Body(hir::BodyId),
-    BodyParamPat(hir::BodyId, usize),
+    ParamPat(hir::HirId, usize),
 }
 
 pub trait PpAnn {
@@ -64,7 +64,7 @@ impl PpAnn for &dyn rustc_hir::intravisit::HirTyCtxt<'_> {
             Nested::ImplItem(id) => state.print_impl_item(self.hir_impl_item(id)),
             Nested::ForeignItem(id) => state.print_foreign_item(self.hir_foreign_item(id)),
             Nested::Body(id) => state.print_expr(self.hir_body(id).value),
-            Nested::BodyParamPat(id, i) => state.print_pat(self.hir_body(id).params[i].pat),
+            Nested::ParamPat(id, i) => state.print_pat(self.hir_fn_decl(id).inputs[i].pat),
         }
     }
 }
@@ -419,7 +419,7 @@ impl<'a> State<'a> {
                 self.pclose();
             }
             hir::TyKind::FnPtr(f) => {
-                self.print_ty_fn(f.abi, f.safety, f.decl, None, f.generic_params, f.param_idents);
+                self.print_ty_fn(f.abi, f.safety, f.decl, None, f.generic_params);
             }
             hir::TyKind::UnsafeBinder(unsafe_binder) => {
                 self.print_unsafe_binder(unsafe_binder);
@@ -511,16 +511,9 @@ impl<'a> State<'a> {
         self.maybe_print_comment(item.span.lo());
         self.print_attrs(self.attrs(item.hir_id()));
         match item.kind {
-            hir::ForeignItemKind::Fn(sig, arg_idents, generics) => {
+            hir::ForeignItemKind::Fn(sig, _arg_idents, generics) => {
                 let (cb, ib) = self.head("");
-                self.print_fn(
-                    sig.header,
-                    Some(item.ident.name),
-                    generics,
-                    sig.decl,
-                    arg_idents,
-                    None,
-                );
+                self.print_fn(sig.header, Some(item.ident.name), generics, sig.decl);
                 self.end(ib);
                 self.word(";");
                 self.end(cb)
@@ -652,7 +645,7 @@ impl<'a> State<'a> {
             }
             hir::ItemKind::Fn { ident, sig, generics, body, .. } => {
                 let (cb, ib) = self.head("");
-                self.print_fn(sig.header, Some(ident.name), generics, sig.decl, &[], Some(body));
+                self.print_fn(sig.header, Some(ident.name), generics, sig.decl);
                 self.word(" ");
                 self.end(ib);
                 self.end(cb);
@@ -968,15 +961,8 @@ impl<'a> State<'a> {
         }
     }
 
-    fn print_method_sig(
-        &mut self,
-        ident: Ident,
-        m: &hir::FnSig<'_>,
-        generics: &hir::Generics<'_>,
-        arg_idents: &[Option<Ident>],
-        body_id: Option<hir::BodyId>,
-    ) {
-        self.print_fn(m.header, Some(ident.name), generics, m.decl, arg_idents, body_id);
+    fn print_method_sig(&mut self, ident: Ident, m: &hir::FnSig<'_>, generics: &hir::Generics<'_>) {
+        self.print_fn(m.header, Some(ident.name), generics, m.decl);
     }
 
     fn print_trait_item(&mut self, ti: &hir::TraitItem<'_>) {
@@ -988,13 +974,13 @@ impl<'a> State<'a> {
             hir::TraitItemKind::Const(ty, default) => {
                 self.print_associated_const(ti.ident, ti.generics, ty, default);
             }
-            hir::TraitItemKind::Fn(ref sig, hir::TraitFn::Required(arg_idents)) => {
-                self.print_method_sig(ti.ident, sig, ti.generics, arg_idents, None);
+            hir::TraitItemKind::Fn(ref sig, hir::TraitFn::Required(_arg_idents)) => {
+                self.print_method_sig(ti.ident, sig, ti.generics);
                 self.word(";");
             }
             hir::TraitItemKind::Fn(ref sig, hir::TraitFn::Provided(body)) => {
                 let (cb, ib) = self.head("");
-                self.print_method_sig(ti.ident, sig, ti.generics, &[], Some(body));
+                self.print_method_sig(ti.ident, sig, ti.generics);
                 self.nbsp();
                 self.end(ib);
                 self.end(cb);
@@ -1019,7 +1005,7 @@ impl<'a> State<'a> {
             }
             hir::ImplItemKind::Fn(ref sig, body) => {
                 let (cb, ib) = self.head("");
-                self.print_method_sig(ii.ident, sig, ii.generics, &[], Some(body));
+                self.print_method_sig(ii.ident, sig, ii.generics);
                 self.nbsp();
                 self.end(ib);
                 self.end(cb);
@@ -1685,7 +1671,7 @@ impl<'a> State<'a> {
                 self.print_constness(constness);
                 self.print_capture_clause(capture_clause);
 
-                self.print_closure_params(fn_decl, body);
+                self.print_closure_params(fn_decl);
                 self.space();
 
                 // This is a bare expression.
@@ -2272,8 +2258,6 @@ impl<'a> State<'a> {
         name: Option<Symbol>,
         generics: &hir::Generics<'_>,
         decl: &hir::FnDecl<'_>,
-        arg_idents: &[Option<Ident>],
-        body_id: Option<hir::BodyId>,
     ) {
         self.print_fn_header_info(header);
 
@@ -2284,43 +2268,32 @@ impl<'a> State<'a> {
         self.print_generic_params(generics.params);
 
         self.popen();
-        // Make sure we aren't supplied *both* `arg_idents` and `body_id`.
-        assert!(arg_idents.is_empty() || body_id.is_none());
         let mut i = 0;
-        let mut print_arg = |s: &mut Self, ty: Option<&hir::Ty<'_>>| {
+        let mut print_param = |s: &mut Self, param: Option<&hir::Param<'_>>| {
             if Some(i) == decl.splatted().map(usize::from) {
                 s.word("#[rustc_splat]");
             }
             if i == 0 && decl.implicit_self().has_implicit_self() {
                 s.print_implicit_self(&decl.implicit_self());
             } else {
-                if let Some(arg_ident) = arg_idents.get(i) {
-                    if let Some(arg_ident) = arg_ident {
-                        s.word(arg_ident.to_string());
-                        s.word(":");
-                        s.space();
-                    }
-                } else if let Some(body_id) = body_id {
-                    s.ann.nested(s, Nested::BodyParamPat(body_id, i));
+                if let Some(param) = param {
+                    s.print_pat(param.pat);
                     s.word(":");
-                    s.space();
-                }
-                if let Some(ty) = ty {
-                    s.print_type(ty);
+                    s.print_type(param.ty);
                 }
             }
             i += 1;
         };
-        self.commasep(Inconsistent, decl.inputs, |s, ty| {
+        self.commasep(Inconsistent, decl.inputs, |s, param| {
             let ib = s.ibox(INDENT_UNIT);
-            print_arg(s, Some(ty));
+            print_param(s, Some(param));
             s.end(ib);
         });
         if decl.c_variadic() {
             if !decl.inputs.is_empty() {
                 self.word(", ");
             }
-            print_arg(self, None);
+            print_param(self, None);
             self.word("...");
         }
         self.pclose();
@@ -2329,21 +2302,21 @@ impl<'a> State<'a> {
         self.print_where_clause(generics)
     }
 
-    fn print_closure_params(&mut self, decl: &hir::FnDecl<'_>, body_id: hir::BodyId) {
+    fn print_closure_params(&mut self, decl: &hir::FnDecl<'_>) {
         self.word("|");
         let mut i = 0;
-        self.commasep(Inconsistent, decl.inputs, |s, ty| {
+        self.commasep(Inconsistent, decl.inputs, |s, param| {
             let ib = s.ibox(INDENT_UNIT);
 
-            s.ann.nested(s, Nested::BodyParamPat(body_id, i));
+            s.print_pat(param.pat);
             i += 1;
 
-            if let hir::TyKind::Infer(()) = ty.kind {
+            if let hir::TyKind::Infer(()) = param.ty.kind {
                 // Print nothing.
             } else {
                 s.word(":");
                 s.space();
-                s.print_type(ty);
+                s.print_type(param.ty);
             }
             s.end(ib);
         });
@@ -2594,7 +2567,6 @@ impl<'a> State<'a> {
         decl: &hir::FnDecl<'_>,
         name: Option<Symbol>,
         generic_params: &[hir::GenericParam<'_>],
-        arg_idents: &[Option<Ident>],
     ) {
         let ib = self.ibox(INDENT_UNIT);
         self.print_formal_generic_params(generic_params);
@@ -2609,8 +2581,6 @@ impl<'a> State<'a> {
             name,
             generics,
             decl,
-            arg_idents,
-            None,
         );
         self.end(ib);
     }

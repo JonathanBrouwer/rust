@@ -926,11 +926,11 @@ impl<'tcx> MirBorrowckCtxt<'_, '_, 'tcx> {
                 let f_in_trait = f_in_trait.as_local()?;
                 if let Node::TraitItem(ti) = self.infcx.tcx.hir_node_by_def_id(f_in_trait)
                     && let hir::TraitItemKind::Fn(sig, _) = ti.kind
-                    && let Some(ty) = sig.decl.inputs.get(local.index() - 1)
-                    && let hir::TyKind::Ref(_, _, hir::Mutability::Not) = ty.kind
+                    && let Some(param) = sig.decl.inputs.get(local.index() - 1)
+                    && let hir::TyKind::Ref(_, _, hir::Mutability::Not) = param.ty.kind
                     && sig.decl.implicit_self().has_implicit_self()
                 {
-                    Some(ty.span)
+                    Some(param.span)
                 } else {
                     None
                 }

@@ -525,7 +525,7 @@ fn virtual_call_violations_for_method<'tcx>(
             })) = tcx.hir_get_if_local(method.def_id).as_ref()
             {
                 // If we have `self: &'a Ty`, get `'a`, so that we can suggest `&'a self`.
-                let lt = match sig.decl.inputs[0].kind {
+                let lt = match sig.decl.inputs[0].ty.kind {
                     hir::TyKind::Ref(lt, ..) if lt.ident.name == kw::UnderscoreLifetime => {
                         sym::empty
                     }
@@ -539,9 +539,8 @@ fn virtual_call_violations_for_method<'tcx>(
                     {
                         Some(name.span.to(sig.decl.inputs[0].span))
                     }
-                    hir::TraitFn::Provided(body_id)
-                        if let body = tcx.hir_body(*body_id)
-                            && let Some(p) = body.params.get(0)
+                    hir::TraitFn::Provided(_body_id)
+                        if let Some(p) = sig.decl.inputs.get(0)
                             && p.span.eq_ctxt(p.ty_span) =>
                     {
                         Some(p.span.to(p.ty_span))

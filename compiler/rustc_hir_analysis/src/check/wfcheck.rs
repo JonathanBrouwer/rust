@@ -1629,8 +1629,12 @@ fn check_fn_or_method<'tcx>(
     // on the entire `FnSig`, since this would use the same `WellFormedLoc`
     // for each type, preventing the HIR wf check from generating
     // a nice error message.
-    let arg_span =
-        |idx| hir_decl.inputs.get(idx).map_or(hir_decl.output.span(), |arg: &hir::Ty<'_>| arg.span);
+    let arg_span = |idx| {
+        hir_decl
+            .inputs
+            .get(idx)
+            .map_or(hir_decl.output.span(), |param: &hir::Param<'_>| param.ty.span)
+    };
 
     sig.inputs_and_output =
         tcx.mk_type_list_from_iter(sig.inputs_and_output.iter().enumerate().map(|(idx, ty)| {

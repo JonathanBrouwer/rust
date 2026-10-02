@@ -309,8 +309,8 @@ impl<'tcx> TyCtxt<'tcx> {
         })
     }
 
-    pub fn hir_body_param_idents(self, id: BodyId) -> impl Iterator<Item = Option<Ident>> {
-        self.hir_body(id).params.iter().map(|param| match param.pat.kind {
+    pub fn hir_body_param_idents(self, decl: &FnDecl<'_>) -> impl Iterator<Item = Option<Ident>> {
+        decl.inputs.iter().map(|param| match param.pat.kind {
             PatKind::Binding(_, _, ident, _) => Some(ident),
             PatKind::Wild => Some(Ident::new(kw::Underscore, param.pat.span)),
             _ => None,
@@ -1140,6 +1140,10 @@ impl<'tcx> TyCtxt<'tcx> {
 impl<'tcx> intravisit::HirTyCtxt<'tcx> for TyCtxt<'tcx> {
     fn hir_node(&self, hir_id: HirId) -> Node<'tcx> {
         (*self).hir_node(hir_id)
+    }
+
+    fn hir_fn_decl(&self, hir_id: HirId) -> &'tcx FnDecl<'tcx> {
+        (*self).hir_fn_decl_by_hir_id(hir_id).unwrap()
     }
 
     fn hir_body(&self, id: BodyId) -> &'tcx Body<'tcx> {

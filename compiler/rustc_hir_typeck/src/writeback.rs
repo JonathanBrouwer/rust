@@ -10,7 +10,6 @@
 
 use std::mem;
 use std::ops::ControlFlow;
-
 use rustc_attr_ir::find_attr;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_data_structures::unord::ExtendUnord;
@@ -40,6 +39,7 @@ use crate::FnCtxt;
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     pub(crate) fn resolve_type_vars_in_body(
         &self,
+        node: hir::Node<'tcx>,
         body: &'tcx hir::Body<'tcx>,
     ) -> &'tcx ty::TypeckResults<'tcx> {
         let item_def_id = self.tcx.hir_body_owner_def_id(body.id());
@@ -50,8 +50,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             self.has_rustc_attrs && find_attr!(self.tcx, item_def_id, RustcDumpUserArgs);
 
         let mut wbcx = WritebackCx::new(self, body, rustc_dump_user_args);
-        for param in body.params {
-            wbcx.visit_node_id(param.pat.span, param.hir_id);
+        if let Some(decl) = node.fn_decl() {
+            for param in decl.inputs {
+                wbcx.visit_node_id(param.pat.span, param.hir_id);
+                wbcx.visit_param(param);
+            }
         }
         match self.tcx.hir_body_owner_kind(item_def_id) {
             // Visit the type of a const or static, which is used during THIR building.
@@ -260,10 +263,11 @@ impl<'cx, 'tcx> WritebackCx<'cx, 'tcx> {
 impl<'cx, 'tcx> Visitor<'tcx> for WritebackCx<'cx, 'tcx> {
     fn visit_expr(&mut self, e: &'tcx hir::Expr<'tcx>) {
         match e.kind {
-            hir::ExprKind::Closure(&hir::Closure { body, .. }) => {
+            hir::ExprKind::Closure(&hir::Closure { body, fn_decl, .. }) => {
                 let body = self.fcx.tcx.hir_body(body);
-                for param in body.params {
+                for param in fn_decl.inputs {
                     self.visit_node_id(e.span, param.hir_id);
+                    self.visit_param(param);
                 }
 
                 self.visit_body(body);

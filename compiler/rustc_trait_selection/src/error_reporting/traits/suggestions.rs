@@ -182,7 +182,7 @@ pub fn suggest_restriction<'tcx>(
         let mut ty_spans = vec![];
         for input in fn_sig.decl.inputs {
             ReplaceImplTraitVisitor { ty_spans: &mut ty_spans, param_did: param.def_id }
-                .visit_ty_unambig(input);
+                .visit_ty_unambig(input.ty);
         }
         // The type param `T: Trait` we will suggest to introduce.
         let type_param = format!("{type_param_name}: {bound_str}");
@@ -2310,10 +2310,10 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
     /// Suggest removing `&` from a function parameter type like `&impl Future`.
     fn suggest_remove_ref_from_param(&self, param: &hir::Param<'_>, err: &mut Diag<'_>) -> bool {
         if let Some(decl) = self.tcx.parent_hir_node(param.hir_id).fn_decl()
-            && let Some(input_ty) = decl.inputs.iter().find(|t| param.ty_span.contains(t.span))
-            && let hir::TyKind::Ref(_, ty, _) = input_ty.kind
+            && let Some(input_param) = decl.inputs.iter().find(|t| param.ty_span.contains(t.span))
+            && let hir::TyKind::Ref(_, ty, _) = input_param.ty.kind
         {
-            let ref_span = input_ty.span.until(ty.span);
+            let ref_span = input_param.ty.span.until(ty.span);
             match self.tcx.sess.source_map().span_to_snippet(ref_span) {
                 Ok(snippet) if snippet.starts_with("&") => {
                     err.span_suggestion_verbose(
@@ -4246,7 +4246,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                     //                                 ||
                     //                                 |t.span
                     //                                 param._ty_span
-                    ty = Some(t);
+                    ty = Some(t.ty);
                 } else if let Some(hir_id) = hir_id
                     && let hir::Node::Ty(t) = self.tcx.hir_node(hir_id)
                 {
@@ -6809,7 +6809,7 @@ fn hint_missing_borrow<'tcx>(
     let mut to_borrow = Vec::new();
     let mut remove_borrow = Vec::new();
 
-    for ((found_arg, expected_arg), arg) in found_args.zip(expected_args).zip(args) {
+    for ((found_arg, expected_arg), param) in found_args.zip(expected_args).zip(args) {
         let (found_ty, found_refs) = get_deref_type_and_refs(*found_arg);
         let (expected_ty, expected_refs) = get_deref_type_and_refs(*expected_arg);
 
@@ -6819,7 +6819,7 @@ fn hint_missing_borrow<'tcx>(
                 && found_refs[..] == expected_refs[expected_refs.len() - found_refs.len()..]
             {
                 to_borrow.push((
-                    arg.span.shrink_to_lo(),
+                    param.span.shrink_to_lo(),
                     expected_refs[..expected_refs.len() - found_refs.len()]
                         .iter()
                         .map(|mutbl| format!("&{}", mutbl.prefix_str()))
@@ -6827,9 +6827,9 @@ fn hint_missing_borrow<'tcx>(
                         .join(""),
                 ));
             } else if found_refs.len() > expected_refs.len() {
-                let mut span = arg.span.shrink_to_lo();
+                let mut span = param.span.shrink_to_lo();
                 let mut left = found_refs.len() - expected_refs.len();
-                let mut ty = arg;
+                let mut ty = param.ty;
                 while let hir::TyKind::Ref(_, inner_ty, _) = &ty.kind
                     && left > 0
                 {

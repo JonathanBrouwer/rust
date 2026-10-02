@@ -2774,12 +2774,14 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
         let ty::Tuple(params) = tupled_params.kind() else { return };
 
         // Find the first argument with a matching type and get its identifier.
-        let Some(this_name) = params.iter().zip(tcx.hir_body_param_idents(closure.body)).find_map(
-            |(param_ty, ident)| {
+        let Some(this_name) = params
+            .iter()
+            .zip(tcx.hir_body_param_idents(closure.fn_decl))
+            .find_map(|(param_ty, ident)| {
                 // FIXME: also support deref for stuff like `Rc` arguments
                 if param_ty.peel_refs() == local_ty { ident } else { None }
-            },
-        ) else {
+            })
+        else {
             return;
         };
 
@@ -4599,7 +4601,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                         // Need to use the `rustc_middle::ty` types to compare against the
                         // `return_region`. Then use the `rustc_hir` type to get only
                         // the lifetime span.
-                        match &fn_decl.inputs[index].kind {
+                        match &fn_decl.inputs[index].ty.kind {
                             hir::TyKind::Ref(lifetime, ..) => {
                                 // With access to the lifetime, we can get
                                 // the span of it.

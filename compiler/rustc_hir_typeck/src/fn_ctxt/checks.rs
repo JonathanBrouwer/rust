@@ -1922,10 +1922,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 );
             }
         } else if let Some(hir::Node::Expr(e)) = self.tcx.hir_get_if_local(def_id)
-            && let hir::ExprKind::Closure(hir::Closure { body, .. }) = &e.kind
+            && let hir::ExprKind::Closure(hir::Closure { fn_decl, .. }) = &e.kind
         {
-            let param = expected_idx
-                .and_then(|expected_idx| self.tcx.hir_body(*body).params.get(expected_idx));
+            let param = expected_idx.and_then(|expected_idx| fn_decl.inputs.get(expected_idx));
             let (kind, span) = if let Some(param) = param {
                 // Try to find earlier invocations of this closure to find if the type mismatch
                 // is because of inference. If we find one, point at them.
@@ -2065,28 +2064,24 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         is_method: bool,
     ) -> Option<(IndexVec<ExpectedIdx, (Option<GenericIdx>, FnParam<'_>)>, &hir::Generics<'_>)>
     {
-        let (sig, generics, body_id, params) = match self.tcx.hir_get_if_local(def_id)? {
+        let (sig, generics) = match self.tcx.hir_get_if_local(def_id)? {
             hir::Node::TraitItem(&hir::TraitItem {
                 generics,
-                kind: hir::TraitItemKind::Fn(sig, trait_fn),
+                kind: hir::TraitItemKind::Fn(sig, _),
                 ..
-            }) => match trait_fn {
-                hir::TraitFn::Required(params) => (sig, generics, None, Some(params)),
-                hir::TraitFn::Provided(body) => (sig, generics, Some(body), None),
-            },
+            }) => (sig, generics),
             hir::Node::ImplItem(&hir::ImplItem {
                 generics,
-                kind: hir::ImplItemKind::Fn(sig, body),
+                kind: hir::ImplItemKind::Fn(sig, _),
                 ..
             })
             | hir::Node::Item(&hir::Item {
-                kind: hir::ItemKind::Fn { sig, generics, body, .. },
-                ..
-            }) => (sig, generics, Some(body), None),
+                kind: hir::ItemKind::Fn { sig, generics, .. }, ..
+            }) => (sig, generics),
             hir::Node::ForeignItem(&hir::ForeignItem {
-                kind: hir::ForeignItemKind::Fn(sig, params, generics),
+                kind: hir::ForeignItemKind::Fn(sig, _, generics),
                 ..
-            }) => (sig, generics, None, Some(params)),
+            }) => (sig, generics),
             _ => return None,
         };
 
@@ -2096,7 +2091,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             if let hir::TyKind::Path(QPath::Resolved(
                 _,
                 &hir::Path { res: Res::Def(_, res_def_id), .. },
-            )) = param.kind
+            )) = param.ty.kind
             {
                 generics
                     .params
@@ -2107,25 +2102,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 None
             }
         });
-        match (body_id, params) {
-            (Some(_), Some(_)) | (None, None) => unreachable!(),
-            (Some(body), None) => {
-                let params = self.tcx.hir_body(body).params;
-                let params = params
-                    .get(is_method as usize..params.len() - sig.decl.c_variadic() as usize)?;
-                debug_assert_eq!(params.len(), fn_inputs.len());
-                Some((fn_inputs.zip(params.iter().map(FnParam::Param)).collect(), generics))
-            }
-            (None, Some(params)) => {
-                let params = params
-                    .get(is_method as usize..params.len() - sig.decl.c_variadic() as usize)?;
-                debug_assert_eq!(params.len(), fn_inputs.len());
-                Some((
-                    fn_inputs.zip(params.iter().map(|&ident| FnParam::Ident(ident))).collect(),
-                    generics,
-                ))
-            }
-        }
+
+        let params = sig.decl.inputs;
+        let params =
+            params.get(is_method as usize..params.len() - sig.decl.c_variadic() as usize)?;
+        debug_assert_eq!(params.len(), fn_inputs.len());
+        Some((fn_inputs.zip(params.iter().map(FnParam::Param)).collect(), generics))
     }
 }
 

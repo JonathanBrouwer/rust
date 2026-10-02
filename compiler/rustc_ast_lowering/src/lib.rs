@@ -1940,7 +1940,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     ImplTraitContext::Disallowed(ImplTraitPosition::PointerParam)
                 }
             };
-            self.lower_ty(&param.ty, itctx)
+            self.lower_param(&param, itctx)
         }));
 
         let output = match coro {

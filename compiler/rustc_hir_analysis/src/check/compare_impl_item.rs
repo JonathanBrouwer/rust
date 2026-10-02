@@ -1023,19 +1023,9 @@ fn report_trait_method_mismatch<'tcx>(
             // When the `impl` receiver is an arbitrary self type, like `self: Box<Self>`, the
             // span points only at the type `Box<Self`>, but we want to cover the whole
             // argument pattern and type.
-            let (sig, body) = tcx.hir_expect_impl_item(impl_m.def_id.expect_local()).expect_fn();
-            let span = tcx
-                .hir_body_param_idents(body)
-                .zip(sig.decl.inputs.iter())
-                .map(|(param_ident, ty)| {
-                    if let Some(param_ident) = param_ident {
-                        param_ident.span.to(ty.span)
-                    } else {
-                        ty.span
-                    }
-                })
-                .next()
-                .unwrap_or(impl_err_span);
+            let (sig, _body) = tcx.hir_expect_impl_item(impl_m.def_id.expect_local()).expect_fn();
+            let span =
+                sig.decl.inputs.iter().map(|param| param.span).next().unwrap_or(impl_err_span);
 
             diag.span_suggestion_verbose(
                 span,
@@ -2008,9 +1998,9 @@ fn compare_synthetic_generics<'tcx>(
                         }
                     }
 
-                    let span = input_tys
-                        .iter()
-                        .find_map(|ty| Visitor(impl_def_id).visit_ty_unambig(ty).break_value())?;
+                    let span = input_tys.iter().find_map(|param| {
+                        Visitor(impl_def_id).visit_ty_unambig(param.ty).break_value()
+                    })?;
 
                     let bounds = impl_m.generics.bounds_for_param(impl_def_id).next()?.bounds;
                     let bounds = bounds.first()?.span().to(bounds.last()?.span());
