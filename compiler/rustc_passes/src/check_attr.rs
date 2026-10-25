@@ -1347,7 +1347,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         for lint in lints {
             let LintCheck {
                 tool: None,
-                lint_name,
+                lint_name_normalized,
                 lint_span,
                 kind: _,
                 reason: _,
@@ -1358,7 +1358,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 continue;
             };
 
-            match lint_name {
+            match lint_name_normalized {
                 sym::dead_code_pub_in_binary => {
                     if !self.tcx.crate_types().contains(&CrateType::Executable) {
                         self.tcx.emit_node_span_lint(
