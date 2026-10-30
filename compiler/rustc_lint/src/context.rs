@@ -90,13 +90,13 @@ impl DynLintStore for LintStore {
         }))
     }
 
-    fn check_lint_name(
+    fn check_attribute_lint_name(
         &self,
         lint_name: &str,
         tool_name: Option<Symbol>,
-        registered_tools: &RegisteredTools,
+        lint_tools: &RegisteredTools,
     ) -> CheckLintNameResult<'_> {
-        self.check_lint_name(lint_name, tool_name, registered_tools)
+        self.check_lint_name(lint_name, tool_name, lint_tools)
     }
 }
 

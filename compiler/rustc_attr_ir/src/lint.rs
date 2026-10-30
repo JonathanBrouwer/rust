@@ -46,7 +46,7 @@ pub struct LintCheck {
     /// The lint's tool name, if present.
     pub tool: Option<Symbol>,
     /// The full normalized lint name of an existing lint, including the tool name.
-    /// This may not be what we user wrote down, in case of renamed lints the new lint name is here.
+    /// This may not be what the user wrote down, in case of renamed lints the new lint name is here.
     /// The above implies that `LintStore::find_lints` is guaranteed to find this lint using this symbol.
     ///
     /// For example, `single_use_lifetime` is changed to `single_use_lifetimes`.
