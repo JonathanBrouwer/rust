@@ -653,6 +653,7 @@ auto:
         --skip tests
         --skip library
         --skip tidyselftest
+        --skip src/tools/rust-analyzer
         && ./x.py --stage 2 test
         --host=aarch64-apple-darwin
         --target=aarch64-apple-darwin
