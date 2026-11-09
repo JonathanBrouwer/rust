@@ -400,14 +400,10 @@ impl<'tcx> ObligationCtxt<'_, 'tcx, ScrubbedTraitError<'tcx>> {
     }
 }
 
-impl<'a, 'tcx, E> ObligationCtxt<'a, 'tcx, E>
+impl<'tcx, E> ObligationCtxt<'_, 'tcx, E>
 where
     E: FromSolverError<'tcx, NextSolverError<'tcx>> + FromSolverError<'tcx, OldSolverError<'tcx>>,
 {
-    pub fn new_raw(infcx: &'a InferCtxt<'tcx>) -> Self {
-        Self { infcx, engine: RefCell::new(FulfillmentEngine::new(infcx)) }
-    }
-
     pub fn assumed_wf_types(
         &self,
         param_env: ty::ParamEnv<'tcx>,
