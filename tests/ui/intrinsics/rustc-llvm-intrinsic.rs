@@ -30,6 +30,10 @@ const IS_INTRINSIC: bool = true;
 #[cfg(any(backend_without_support, force_fallback))]
 const IS_INTRINSIC: bool = false;
 
+// Make sure we do not confuse this with the `breakpoint` intrinsic.
+#[rustc_intrinsic(llvm = "llvm.donothing")]
+fn breakpoint() {}
+
 fn main() {
     let res = sometimes_fshl(1, 2, 3);
     if IS_INTRINSIC {
@@ -51,4 +55,6 @@ fn main() {
 
     assert_eq!(const { size_of_val(1, 2, 3) }, 8);
     assert_eq!(size_of_val(1, 2, 3), 8);
+
+    breakpoint();
 }
