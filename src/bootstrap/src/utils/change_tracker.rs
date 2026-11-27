@@ -691,4 +691,9 @@ pub const CONFIG_CHANGE_HISTORY: &[ChangeInfo] = &[
         severity: ChangeSeverity::Info,
         summary: "`low-priority` is now enabled by default aside from `bootstrap.dist.toml`, which is optimal for the overwhelming majority of situations.",
     },
+    ChangeInfo {
+        change_id: 166592,
+        severity: ChangeSeverity::Info,
+        summary: "`rustc_perf_path` was moved to its own `[perf]` table.",
+    },
 ];
